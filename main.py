@@ -12,10 +12,33 @@ from kivy.core.window import Window
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import os
+from kivy.uix.switch import Switch
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, Rectangle
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
 Window.size = (390, 360)  # Tamaño inicial de la ventana
+
+class CustomSwitch(Switch):
+    def __init__(self, **kwargs):
+        super(CustomSwitch, self).__init__(**kwargs)
+        self.bind(active=self.on_active)
+        self.bind(pos=self.on_pos)
+        self.bind(size=self.on_size)
+
+    def on_active(self, instance, value):
+        if self.canvas is not None:
+            self.canvas.before.clear()
+            with self.canvas.before:
+                Color(0, 1, 0, 1) if value else Color(1, 0, 0, 1)
+                Rectangle(pos=self.pos, size=self.size)
+
+    def on_size(self, *args):
+        self.on_active(self, self.active)
+
+    def on_pos(self, *args):
+        self.on_active(self, self.active)
 
 class ContadorApp(App):
     def build(self):
@@ -96,19 +119,28 @@ class ContadorApp(App):
         self.root.add_widget(unit_checkbox_layout)
         
         # Botones
-        self.revisado_btn = Button(text='REVISADO', size_hint=(1, 0.1))
+        self.revisado_btn = Button(text='REVISADO', size_hint=(1, 1))
         self.revisado_btn.bind(on_press=self.on_revisado)
-        self.traducido_btn = Button(text='TRADUCIDO', size_hint=(1, 0.1))
+        self.traducir_btn = Button(text='TRADUCIR', size_hint=(1, 1))
+        self.traducir_btn.bind(on_press=self.on_traducir)
+        self.traducido_btn = Button(text='TRADUCIDO', size_hint=(1, 1))
         self.traducido_btn.bind(on_press=self.on_traducido)
         
         button_layout = BoxLayout(size_hint=(1, 0.1))
         button_layout.add_widget(self.revisado_btn)
+        button_layout.add_widget(self.traducir_btn)
         button_layout.add_widget(self.traducido_btn)
         self.root.add_widget(button_layout)
         
         # Barra de estado
         self.status_bar = Label(text='Estado: Esperando...', size_hint=(1, 0.1), color=(1, 1, 1, 1))
         self.root.add_widget(self.status_bar)
+        
+        self.descripcion = ''
+        self.modo_empleo = ''
+        self.precauciones = ''
+        self.mas_informaciones = ''
+        self.traduccion_tipo = ''
         
         return self.root
 
@@ -180,13 +212,65 @@ class ContadorApp(App):
                 self.check_und.active = False
                 self.check_ml.active = False
 
+    def show_warning_popup(self, message):
+        content = BoxLayout(orientation='vertical', padding=10)
+        label = Label(text=message, text_size=(280, None), halign='center', valign='middle', size_hint_y=None)
+        label.bind(texture_size=label.setter('size'))
+        content.add_widget(label)
+        popup = Popup(title='Advertencia',
+                      content=content,
+                      size_hint=(0.6, 0.4))
+        popup.open()
+
     def on_revisado(self, instance):
-        self.registrar_revision('Solo Revisión')
-        self.status_bar.text = 'Estado: Producto revisado'
+        if not self.ean_sku_id.text.strip():
+            self.show_warning_popup('El campo EAN/SKU/ID\nno puede estar vacío.')
+        else:
+            self.registrar_revision('Solo Revisión')
+            self.status_bar.text = 'Estado: Producto revisado'
+
+    def on_traducir(self, instance):
+        self.traducir_popup = Popup(title='Traducciones',
+                                    content=BoxLayout(orientation='vertical', spacing=10, padding=10),
+                                    size_hint=(0.8, 0.8))
+        
+        self.switch_traduccion = CustomSwitch(active=False, size_hint=(None, None), size=(100, 48))
+        switch_layout = BoxLayout(size_hint=(1, 0.1), spacing=10)
+        switch_layout.add_widget(Label(text='PT', color=(1, 1, 1, 1)))
+        switch_layout.add_widget(self.switch_traduccion)
+        switch_layout.add_widget(Label(text='IT', color=(1, 1, 1, 1)))
+        
+        self.descripcion_input = TextInput(hint_text='Descripcion', multiline=True, size_hint=(1, 0.2))
+        self.modo_empleo_input = TextInput(hint_text='Modo de Empleo', multiline=True, size_hint=(1, 0.2))
+        self.precauciones_input = TextInput(hint_text='Precauciones', multiline=True, size_hint=(1, 0.2))
+        self.mas_informaciones_input = TextInput(hint_text='Más Informaciones', multiline=True, size_hint=(1, 0.2))
+        
+        grabar_button = Button(text='Grabar y Volver', size_hint=(1, 0.2))
+        grabar_button.bind(on_press=self.on_grabar_traducciones)
+        
+        self.traducir_popup.content.add_widget(switch_layout)
+        self.traducir_popup.content.add_widget(self.descripcion_input)
+        self.traducir_popup.content.add_widget(self.modo_empleo_input)
+        self.traducir_popup.content.add_widget(self.precauciones_input)
+        self.traducir_popup.content.add_widget(self.mas_informaciones_input)
+        self.traducir_popup.content.add_widget(grabar_button)
+        self.traducir_popup.open()
+
+    def on_grabar_traducciones(self, instance):
+        traduccion_tipo = 'IT' if self.switch_traduccion.active else 'PT'
+        self.descripcion = self.descripcion_input.text
+        self.modo_empleo = self.modo_empleo_input.text
+        self.precauciones = self.precauciones_input.text
+        self.mas_informaciones = self.mas_informaciones_input.text
+        self.traduccion_tipo = traduccion_tipo
+        self.traducir_popup.dismiss()
 
     def on_traducido(self, instance):
-        self.registrar_revision('Revisado y Traducido')
-        self.status_bar.text = 'Estado: Producto traducido'
+        if not self.ean_sku_id.text.strip():
+            self.show_warning_popup('El campo EAN/SKU/ID\nno puede estar vacío.')
+        else:
+            self.registrar_revision('Revisado y Traducido')
+            self.status_bar.text = 'Estado: Producto traducido'
 
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
@@ -202,6 +286,11 @@ class ContadorApp(App):
         fecha = datetime.now().strftime('%d-%m-%Y')
         archivo = f'REVs/REV-{fecha}.xlsx'
         
+        descripcion_col = f'Descripcion{self.traduccion_tipo}' if self.traduccion_tipo else ''
+        modo_empleo_col = f'Modo de Empleo{self.traduccion_tipo}' if self.traduccion_tipo else ''
+        precauciones_col = f'Precauciones{self.traduccion_tipo}' if self.traduccion_tipo else ''
+        mas_informaciones_col = f'Más Informaciones{self.traduccion_tipo}' if self.traduccion_tipo else ''
+        
         if not os.path.exists('REVs'):
             os.makedirs('REVs')
         
@@ -211,9 +300,9 @@ class ContadorApp(App):
         else:
             wb = Workbook()
             ws = wb.active
-            ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado'])
+            ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado', 'DescripcionPT', 'Modo de EmpleoPT', 'PrecaucionesPT', 'Más InformacionesPT', 'DescripcionIT', 'Modo de EmpleoIT', 'PrecaucionesIT', 'Más InformacionesIT'])
         
-        ws.append([ean_sku_id, marca_titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado])
+        ws.append([ean_sku_id, marca_titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado, self.descripcion if self.traduccion_tipo == 'PT' else '', self.modo_empleo if self.traduccion_tipo == 'PT' else '', self.precauciones if self.traduccion_tipo == 'PT' else '', self.mas_informaciones if self.traduccion_tipo == 'PT' else '', self.descripcion if self.traduccion_tipo == 'IT' else '', self.modo_empleo if self.traduccion_tipo == 'IT' else '', self.precauciones if self.traduccion_tipo == 'IT' else '', self.mas_informaciones if self.traduccion_tipo == 'IT' else ''])
         wb.save(archivo)
         
         self.ean_sku_id.text = ''
@@ -230,6 +319,11 @@ class ContadorApp(App):
         self.check_ml.active = False
         self.check_gr.active = False
         self.lote_composition = ''
+        self.descripcion = ''
+        self.modo_empleo = ''
+        self.precauciones = ''
+        self.mas_informaciones = ''
+        self.traduccion_tipo = ''
 
 if __name__ == '__main__':
     ContadorApp().run()
