@@ -66,7 +66,7 @@ class ContadorApp(App):
         
         # Campo de texto EAN/SKU/ID
         self.ean_sku_id = TextInput(hint_text='EAN/SKU/ID', multiline=False, size_hint=(1, 0.1))
-        self.ean_sku_id.bind(on_text_validate=self.focus_next)
+        self.ean_sku_id.bind(on_text_validate=self.on_ean_enter)
         self.root.add_widget(self.ean_sku_id)
         
         # Campo de texto MARCA/TITULO
@@ -144,13 +144,13 @@ class ContadorApp(App):
         
         return self.root
 
+    def on_window_resize(self, instance, width, height):
+        self.status_bar.text = f'Estado: Ventana redimensionada a {width}x{height}'
+
     def focus_next(self, instance):
         next_widget = instance.get_focus_next()
         if next_widget:
             next_widget.focus = True
-
-    def on_window_resize(self, instance, width, height):
-        self.status_bar.text = f'Estado: Ventana redimensionada a {width}x{height}'
 
     def on_slider_value_change(self, instance, value):
         self.slider_value.text = str(int(value))
@@ -163,6 +163,58 @@ class ContadorApp(App):
             self.status_bar.text = f'Estado: Valor del campo numérico cambiado a {value}'
         else:
             self.slider_value.text = str(int(self.slider.value))
+
+    def on_ean_enter(self, instance):
+        ean = self.ean_sku_id.text.strip()
+        if not ean:
+            self.show_warning_popup('El campo EAN/SKU/ID\nno puede estar vacío.')
+            return
+
+        found, sku, title = self.search_product_in_db(ean)
+        if found:
+            self.ean_sku_id.text = sku
+            self.marca_titulo.text = title
+            self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}')
+        else:
+            self.show_add_product_popup(ean)
+
+    def search_product_in_db(self, ean):
+        if not os.path.exists('db.xlsx'):
+            return False, '', ''
+
+        wb = load_workbook('db.xlsx')
+        ws = wb.active
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            skus = str(row[0])
+            title = row[1]
+            eans = str(row[2]).split(',')
+            if ean in eans:
+                return True, skus, title
+        return False, '', ''
+
+    def show_info_popup(self, title, message):
+        content = BoxLayout(orientation='vertical', padding=10)
+        content.add_widget(Label(text=message, text_size=(280, None), halign='center'))
+        popup = Popup(title=title,
+                      content=content,
+                      size_hint=(0.6, 0.4))
+        popup.open()
+
+    def show_add_product_popup(self, ean):
+        content = BoxLayout(orientation='vertical', padding=10)
+        content.add_widget(Label(text=f'El producto con EAN {ean} no se encontró.'))
+        content.add_widget(Label(text='¿Desea agregarlo a la base de datos?'))
+        add_button = Button(text='Agregar', size_hint=(1, 0.2))
+        add_button.bind(on_press=lambda x: self.add_product_to_db(ean))
+        content.add_widget(add_button)
+        popup = Popup(title='Agregar Producto',
+                      content=content,
+                      size_hint=(0.8, 0.4))
+        popup.open()
+
+    def add_product_to_db(self, ean):
+        # Implementar la lógica para agregar el producto a la base de datos
+        pass
 
     def on_special_checkbox_active(self, checkbox, value):
         if value:
