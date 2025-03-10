@@ -204,17 +204,54 @@ class ContadorApp(App):
         content = BoxLayout(orientation='vertical', padding=10)
         content.add_widget(Label(text=f'El producto con EAN {ean} no se encontró.'))
         content.add_widget(Label(text='¿Desea agregarlo a la base de datos?'))
-        add_button = Button(text='Agregar', size_hint=(1, 0.2))
-        add_button.bind(on_press=lambda x: self.add_product_to_db(ean))
-        content.add_widget(add_button)
-        popup = Popup(title='Agregar Producto',
-                      content=content,
-                      size_hint=(0.8, 0.4))
-        popup.open()
+        button_layout = BoxLayout(size_hint=(1, 0.2))
+        continue_button = Button(text='Continuar')
+        continue_button.bind(on_press=lambda x: self.continue_without_adding(ean))
+        add_button = Button(text='Añadir a DB')
+        add_button.bind(on_press=lambda x: self.show_add_to_db_popup(ean))
+        button_layout.add_widget(continue_button)
+        button_layout.add_widget(add_button)
+        content.add_widget(button_layout)
+        self.add_product_popup = Popup(title='Agregar Producto',
+                                       content=content,
+                                       size_hint=(0.8, 0.4))
+        self.add_product_popup.open()
 
-    def add_product_to_db(self, ean):
-        # Implementar la lógica para agregar el producto a la base de datos
-        pass
+    def continue_without_adding(self, ean):
+        self.add_product_popup.dismiss()
+        self.ean_sku_id.text = ean
+
+    def show_add_to_db_popup(self, ean):
+        self.add_product_popup.dismiss()
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        self.sku_input = TextInput(hint_text='SKU (Codigo ID Unico)', multiline=False)
+        self.title_input = TextInput(hint_text='Titulo (Marca y Descripción)', multiline=False)
+        self.eans_input = TextInput(hint_text='EANs (separados por coma si hay varios)', multiline=False)
+        add_button = Button(text='Añadir')
+        add_button.bind(on_press=self.add_product_to_db)
+        content.add_widget(self.sku_input)
+        content.add_widget(self.title_input)
+        content.add_widget(self.eans_input)
+        content.add_widget(add_button)
+        self.add_to_db_popup = Popup(title='Añadir a la Base de Datos',
+                                     content=content,
+                                     size_hint=(0.8, 0.6))
+        self.add_to_db_popup.open()
+
+    def add_product_to_db(self, instance):
+        sku = self.sku_input.text.strip()
+        title = self.title_input.text.strip()
+        eans = self.eans_input.text.strip()
+        if sku and title and eans:
+            wb = load_workbook('db.xlsx')
+            ws = wb.active
+            ws.append([sku, title, eans])
+            wb.save('db.xlsx')
+            self.add_to_db_popup.dismiss()
+            self.ean_sku_id.text = sku
+            self.marca_titulo.text = title
+        else:
+            self.show_warning_popup('Todos los campos son obligatorios.')
 
     def on_special_checkbox_active(self, checkbox, value):
         if value:
