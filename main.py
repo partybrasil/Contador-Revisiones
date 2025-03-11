@@ -16,6 +16,8 @@ from openpyxl import load_workbook, Workbook
 from kivy.uix.switch import Switch
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle
+from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
+from kivy.clock import Clock
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
@@ -47,6 +49,20 @@ class ContadorApp(App):
         self.root = BoxLayout(orientation='vertical', padding=10, spacing=10)
         Window.bind(on_resize=self.on_window_resize)
         self.init_db()
+        
+        # Botones superiores
+        top_button_layout = BoxLayout(size_hint=(1, 0.1))
+        self.historial_btn = Button(text='Historial', size_hint=(1, 1))
+        self.historial_btn.bind(on_press=self.on_historial)
+        self.reset_btn = Button(text='RESET!!!', size_hint=(1, 1))
+        self.reset_btn.bind(on_press=self.on_reset)
+        self.reset_btn.bind(on_release=self.on_reset_release)
+        self.reg_db_btn = Button(text='Reg DB', size_hint=(1, 1))
+        self.reg_db_btn.bind(on_press=self.show_add_to_db_popup)
+        top_button_layout.add_widget(self.historial_btn)
+        top_button_layout.add_widget(self.reset_btn)
+        top_button_layout.add_widget(self.reg_db_btn)
+        self.root.add_widget(top_button_layout)
         
         # Checkboxes para Regalo ZZ, LOTE, Consumo
         self.check_regalo = CheckBox(size_hint=(None, None), size=(48, 48))
@@ -144,6 +160,15 @@ class ContadorApp(App):
         self.precauciones = ''
         self.mas_informaciones = ''
         self.traduccion_tipo = ''
+        
+        self.descripcion_pt = ''
+        self.modo_empleo_pt = ''
+        self.precauciones_pt = ''
+        self.mas_informaciones_pt = ''
+        self.descripcion_it = ''
+        self.modo_empleo_it = ''
+        self.precauciones_it = ''
+        self.mas_informaciones_it = ''
         
         return self.root
 
@@ -253,8 +278,7 @@ class ContadorApp(App):
         self.add_product_popup.dismiss()
         self.ean_sku_id.text = ean
 
-    def show_add_to_db_popup(self, ean):
-        self.add_product_popup.dismiss()
+    def show_add_to_db_popup(self, instance=None):
         content = BoxLayout(orientation='vertical', padding=10, spacing=10)
         self.sku_input = TextInput(hint_text='SKU (Codigo ID Unico)', multiline=False)
         self.title_input = TextInput(hint_text='Titulo (Marca y Descripción)', multiline=False)
@@ -350,46 +374,80 @@ class ContadorApp(App):
         else:
             self.registrar_revision('Solo Revisión')
             self.status_bar.text = 'Estado: Producto revisado'
-            self.slider.value = 1  # Volver a 1 después de revisar
-            self.slider_value.text = '1'  # Volver a 1 después de revisar
+            self.reset_fields()  # Limpiar campos después de revisar
 
     def on_traducir(self, instance):
         self.traducir_popup = Popup(title='Traducciones',
                                     content=BoxLayout(orientation='vertical', spacing=10, padding=10),
-                                    size_hint=(0.8, 0.8))
+                                    size_hint=(0.8, 0.8),
+                                    auto_dismiss=False)  # Evitar que el popup se cierre al hacer clic fuera
+
+        tab_panel = TabbedPanel(do_default_tab=False)
         
-        self.switch_traduccion = CustomSwitch(active=False, size_hint=(None, None), size=(100, 48))
-        switch_layout = BoxLayout(size_hint=(1, 0.1), spacing=10)
-        switch_layout.add_widget(Label(text='PT', color=(1, 1, 1, 1)))
-        switch_layout.add_widget(self.switch_traduccion)
-        switch_layout.add_widget(Label(text='IT', color=(1, 1, 1, 1)))
-        
-        self.descripcion_input = TextInput(hint_text='Descripcion', multiline=True, size_hint=(1, 0.2))
-        self.modo_empleo_input = TextInput(hint_text='Modo de Empleo', multiline=True, size_hint=(1, 0.2))
-        self.precauciones_input = TextInput(hint_text='Precauciones', multiline=True, size_hint=(1, 0.2))
-        self.mas_informaciones_input = TextInput(hint_text='Más Informaciones', multiline=True, size_hint=(1, 0.2))
-        
+        pt_tab = TabbedPanelItem(text='PT')
+        it_tab = TabbedPanelItem(text='IT')
+
+        self.descripcion_input_pt = TextInput(hint_text='Descripcion', multiline=True, size_hint=(1, 0.2))
+        self.modo_empleo_input_pt = TextInput(hint_text='Modo de Empleo', multiline=True, size_hint=(1, 0.2))
+        self.precauciones_input_pt = TextInput(hint_text='Precauciones', multiline=True, size_hint=(1, 0.2))
+        self.mas_informaciones_input_pt = TextInput(hint_text='Más Informaciones', multiline=True, size_hint=(1, 0.2))
+
+        self.descripcion_input_it = TextInput(hint_text='Descripcion', multiline=True, size_hint=(1, 0.2))
+        self.modo_empleo_input_it = TextInput(hint_text='Modo de Empleo', multiline=True, size_hint=(1, 0.2))
+        self.precauciones_input_it = TextInput(hint_text='Precauciones', multiline=True, size_hint=(1, 0.2))
+        self.mas_informaciones_input_it = TextInput(hint_text='Más Informaciones', multiline=True, size_hint=(1, 0.2))
+
+        pt_tab_content = BoxLayout(orientation='vertical')
+        pt_tab_content.add_widget(self.descripcion_input_pt)
+        pt_tab_content.add_widget(self.modo_empleo_input_pt)
+        pt_tab_content.add_widget(self.precauciones_input_pt)
+        pt_tab_content.add_widget(self.mas_informaciones_input_pt)
+        pt_tab.add_widget(pt_tab_content)
+
+        it_tab_content = BoxLayout(orientation='vertical')
+        it_tab_content.add_widget(self.descripcion_input_it)
+        it_tab_content.add_widget(self.modo_empleo_input_it)
+        it_tab_content.add_widget(self.precauciones_input_it)
+        it_tab_content.add_widget(self.mas_informaciones_input_it)
+        it_tab.add_widget(it_tab_content)
+
+        tab_panel.add_widget(pt_tab)
+        tab_panel.add_widget(it_tab)
+
         grabar_button = Button(text='Grabar y Volver', size_hint=(1, 0.2))
         grabar_button.bind(on_press=self.on_grabar_traducciones)
-        
-        self.traducir_popup.content.add_widget(switch_layout)
-        self.traducir_popup.content.add_widget(self.descripcion_input)
-        self.traducir_popup.content.add_widget(self.modo_empleo_input)
-        self.traducir_popup.content.add_widget(self.precauciones_input)
-        self.traducir_popup.content.add_widget(self.mas_informaciones_input)
+
+        self.traducir_popup.content.add_widget(tab_panel)
         self.traducir_popup.content.add_widget(grabar_button)
         self.traducir_popup.open()
 
+        self.load_traduccion_data()
+
+    def save_traduccion_data(self):
+        self.descripcion_pt = self.descripcion_input_pt.text
+        self.modo_empleo_pt = self.modo_empleo_input_pt.text
+        self.precauciones_pt = self.precauciones_input_pt.text
+        self.mas_informaciones_pt = self.mas_informaciones_input_pt.text
+
+        self.descripcion_it = self.descripcion_input_it.text
+        self.modo_empleo_it = self.modo_empleo_input_it.text
+        self.precauciones_it = self.precauciones_input_it.text
+        self.mas_informaciones_it = self.mas_informaciones_input_it.text
+
+    def load_traduccion_data(self):
+        self.descripcion_input_pt.text = self.descripcion_pt
+        self.modo_empleo_input_pt.text = self.modo_empleo_pt
+        self.precauciones_input_pt.text = self.precauciones_pt
+        self.mas_informaciones_input_pt.text = self.mas_informaciones_pt
+
+        self.descripcion_input_it.text = self.descripcion_it
+        self.modo_empleo_input_it.text = self.modo_empleo_it
+        self.precauciones_input_it.text = self.precauciones_it
+        self.mas_informaciones_input_it.text = self.mas_informaciones_it
+
     def on_grabar_traducciones(self, instance):
-        traduccion_tipo = 'IT' if self.switch_traduccion.active else 'PT'
-        self.descripcion = self.descripcion_input.text
-        self.modo_empleo = self.modo_empleo_input.text
-        self.precauciones = self.precauciones_input.text
-        self.mas_informaciones = self.mas_informaciones_input.text
-        self.traduccion_tipo = traduccion_tipo
+        self.save_traduccion_data()
         self.traducir_popup.dismiss()
-        self.slider.value = 1  # Volver a 1 después de traducir
-        self.slider_value.text = '1'  # Volver a 1 después de traducir
 
     def on_traducido(self, instance):
         if not self.ean_sku_id.text.strip():
@@ -397,8 +455,7 @@ class ContadorApp(App):
         else:
             self.registrar_revision('Revisado y Traducido')
             self.status_bar.text = 'Estado: Producto traducido'
-            self.slider.value = 1  # Volver a 1 después de traducir
-            self.slider_value.text = '1'  # Volver a 1 después de traducir
+            self.reset_fields()  # Limpiar campos después de traducir
 
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
@@ -430,9 +487,12 @@ class ContadorApp(App):
             ws = wb.active
             ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado', 'DescripcionPT', 'Modo de EmpleoPT', 'PrecaucionesPT', 'Más InformacionesPT', 'DescripcionIT', 'Modo de EmpleoIT', 'PrecaucionesIT', 'Más InformacionesIT'])
         
-        ws.append([ean_sku_id, marca_titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado, self.descripcion if self.traduccion_tipo == 'PT' else '', self.modo_empleo if self.traduccion_tipo == 'PT' else '', self.precauciones if self.traduccion_tipo == 'PT' else '', self.mas_informaciones if self.traduccion_tipo == 'PT' else '', self.descripcion if self.traduccion_tipo == 'IT' else '', self.modo_empleo if self.traduccion_tipo == 'IT' else '', self.precauciones if self.traduccion_tipo == 'IT' else '', self.mas_informaciones if self.traduccion_tipo == 'IT' else ''])
+        ws.append([ean_sku_id, marca_titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado, self.descripcion_pt, self.modo_empleo_pt, self.precauciones_pt, self.mas_informaciones_pt, self.descripcion_it, self.modo_empleo_it, self.precauciones_it, self.mas_informaciones_it])
         wb.save(archivo)
         
+        self.reset_fields()  # Limpiar campos después de registrar la revisión
+
+    def reset_fields(self):
         self.ean_sku_id.text = ''
         self.marca_titulo.text = ''
         self.check_regalo.active = False
@@ -447,16 +507,79 @@ class ContadorApp(App):
         self.check_ml.active = False
         self.check_gr.active = False
         self.lote_composition = ''
-        self.descripcion = ''
-        self.modo_empleo = ''
-        self.precauciones = ''
-        self.mas_informaciones = ''
-        self.traduccion_tipo = ''
+        self.descripcion_pt = ''
+        self.modo_empleo_pt = ''
+        self.precauciones_pt = ''
+        self.mas_informaciones_pt = ''
+        self.descripcion_it = ''
+        self.modo_empleo_it = ''
+        self.precauciones_it = ''
+        self.mas_informaciones_it = ''
+        
+        # Inicializar campos de entrada de traducción si no existen
+        if hasattr(self, 'descripcion_input_pt'):
+            self.load_traduccion_data()  # Limpiar los campos de traducción
 
     def on_status_bar_double_click(self, instance, touch):
         if touch.is_double_tap:
             Window.size = (500, 400)
             self.status_bar.text = 'Estado: Ventana restablecida a tamaño inicial'
+
+    def on_historial(self, instance):
+        self.historial_popup = Popup(title='Historial de Revisiones',
+                                     content=BoxLayout(orientation='vertical', padding=10, spacing=10),
+                                     size_hint=(0.8, 0.8))
+        self.historial_content = BoxLayout(orientation='vertical')
+        self.historial_popup.content.add_widget(self.historial_content)
+        
+        button_layout = BoxLayout(size_hint=(1, 0.2))
+        self.historial_volver_btn = Button(text='Volver')
+        self.historial_volver_btn.bind(on_press=self.on_historial_volver)
+        self.historial_siguiente_btn = Button(text='Siguiente')
+        self.historial_siguiente_btn.bind(on_press=self.on_historial_siguiente)
+        button_layout.add_widget(self.historial_volver_btn)
+        button_layout.add_widget(self.historial_siguiente_btn)
+        
+        self.historial_popup.content.add_widget(button_layout)
+        self.historial_index = 0
+        self.load_historial()
+        self.historial_popup.open()
+
+    def load_historial(self):
+        self.historial_content.clear_widgets()
+        fecha = datetime.now().strftime('%d-%m-%Y')
+        archivo = f'REVs/REV-{fecha}.xlsx'
+        if os.path.exists(archivo):
+            wb = load_workbook(archivo)
+            ws = wb.active
+            rows = list(ws.iter_rows(min_row=2, values_only=True))
+            rows.reverse()
+            for row in rows[self.historial_index:self.historial_index + 5]:
+                self.historial_content.add_widget(Label(text=f'{row[0]}-{row[1]}-{row[2]} / {row[9]}'))
+
+    def on_historial_siguiente(self, instance):
+        self.historial_index += 5
+        self.load_historial()
+
+    def on_historial_volver(self, instance):
+        if self.historial_index >= 5:
+            self.historial_index -= 5
+        self.load_historial()
+
+    def on_reset(self, instance):
+        self.reset_start_time = datetime.now()
+        self.status_bar.text = 'Estado: Mantenga presionado para resetear...'
+        Clock.schedule_once(self.reset_ready, 3)
+
+    def reset_ready(self, dt):
+        self.status_bar.text = 'Estado: RESET Finalizado!!'
+
+    def on_reset_release(self, instance):
+        if (datetime.now() - self.reset_start_time).total_seconds() >= 3:
+            self.reset_fields()
+            self.status_bar.text = 'Estado: Interfaz reseteada'
+        else:
+            self.status_bar.text = 'Estado: Reset cancelado'
 
 if __name__ == '__main__':
     ContadorApp().run()
