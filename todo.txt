@@ -1,0 +1,12 @@
+# Travar/Lockear popup "Composición de Lote" igual que el de "Traducir" evita cerrar el popup hasta que se haga click en "aceptar". El problema es que hacer click fuera de la zona del popup, hace que este desaparezca.
+
+# Retornar imediatamente el foco en el campo de texto "EAN/SKU/ID" cuando se hace click en REVISADO o en TRADUCIDO, para instantaneamente se pueda seguir revisando sin necesidad de hacerle click en el campo de texto para volver a escribir.
+
+#Revisar nueva modificacion que inesperadamente añadio en la base de datos una nueva columna llamada "estado", cuando eso era solamente parte de la funcion implementada de verificar el estado de revision, si ya habia sido revisado antes, esta logica busca si el SKU del EAN consultado en "EAN/SKU/ID" se encuentra en el xlsx REV del dia actual. Sin hacer modificaciones en la DB, ni en el REV tampoco (solo debe verificar si esta presente en las revisiones del dia actual).
+
+#Buscador / Consultas, con criterio full scope, para buscar por palabras clave en la base de datos desde la interface.
+
+#Botón para un REV check manual?? y DB check manual??
+
+#Implementar una logica para sumarizar e contabilizar la revision diaria ("Solo Revisión" y "Revisado y Traducido") dando los totales en cada aspecto de la revision (mas criterios??)
+
