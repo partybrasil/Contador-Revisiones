@@ -43,7 +43,7 @@ class CustomSwitch(Switch):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones'
+        self.title = 'Contador de Revisiones (DESARROLLO)'
         self.root = BoxLayout(orientation='vertical', padding=10, spacing=10)
         Window.bind(on_resize=self.on_window_resize)
         self.init_db()
@@ -136,7 +136,6 @@ class ContadorApp(App):
         
         # Barra de estado
         self.status_bar = Label(text='Estado: Esperando...', size_hint=(1, 0.1), color=(1, 1, 1, 1))
-        self.status_bar.bind(on_touch_down=self.on_status_bar_double_click)
         self.root.add_widget(self.status_bar)
         
         self.descripcion = ''
@@ -440,11 +439,6 @@ class ContadorApp(App):
         self.precauciones = ''
         self.mas_informaciones = ''
         self.traduccion_tipo = ''
-
-    def on_status_bar_double_click(self, instance, touch):
-        if touch.is_double_tap:
-            Window.size = (500, 400)
-            self.status_bar.text = 'Estado: Ventana restablecida a tamaño inicial'
 
 if __name__ == '__main__':
     ContadorApp().run()
