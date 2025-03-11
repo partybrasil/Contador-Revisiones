@@ -19,7 +19,7 @@ from kivy.graphics import Color, Rectangle
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
-Window.size = (390, 360)  # Tamaño inicial de la ventana
+Window.size = (500, 400)  # Tamaño inicial de la ventana
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -91,8 +91,8 @@ class ContadorApp(App):
         self.root.add_widget(checkbox_layout)
         
         # Barra deslizante y campo numérico
-        self.slider = Slider(min=0, max=1000, value=0, size_hint=(1, 0.1))
-        self.slider_value = TextInput(text='0', multiline=False, size_hint=(None, None), size=(60, 48))
+        self.slider = Slider(min=0, max=1000, value=1, size_hint=(1, 0.1))  # Valor inicial cambiado a 1
+        self.slider_value = TextInput(text='1', multiline=False, size_hint=(None, None), size=(60, 48))  # Valor inicial cambiado a 1
         self.slider.bind(value=self.on_slider_value_change)
         self.slider_value.bind(on_text_validate=self.on_text_value_change)
         
@@ -337,6 +337,8 @@ class ContadorApp(App):
         else:
             self.registrar_revision('Solo Revisión')
             self.status_bar.text = 'Estado: Producto revisado'
+            self.slider.value = 1  # Volver a 1 después de revisar
+            self.slider_value.text = '1'  # Volver a 1 después de revisar
 
     def on_traducir(self, instance):
         self.traducir_popup = Popup(title='Traducciones',
@@ -373,6 +375,8 @@ class ContadorApp(App):
         self.mas_informaciones = self.mas_informaciones_input.text
         self.traduccion_tipo = traduccion_tipo
         self.traducir_popup.dismiss()
+        self.slider.value = 1  # Volver a 1 después de traducir
+        self.slider_value.text = '1'  # Volver a 1 después de traducir
 
     def on_traducido(self, instance):
         if not self.ean_sku_id.text.strip():
@@ -380,6 +384,8 @@ class ContadorApp(App):
         else:
             self.registrar_revision('Revisado y Traducido')
             self.status_bar.text = 'Estado: Producto traducido'
+            self.slider.value = 1  # Volver a 1 después de traducir
+            self.slider_value.text = '1'  # Volver a 1 después de traducir
 
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
@@ -422,8 +428,8 @@ class ContadorApp(App):
         self.check_pt.active = False
         self.check_es.active = False
         self.check_it.active = False
-        self.slider.value = 0
-        self.slider_value.text = '0'
+        self.slider.value = 1  # Volver a 1 después de resetear la interfaz
+        self.slider_value.text = '1'  # Volver a 1 después de resetear la interfaz
         self.check_und.active = False
         self.check_ml.active = False
         self.check_gr.active = False
