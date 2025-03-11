@@ -9,17 +9,16 @@ from kivy.uix.slider import Slider
 from kivy.uix.progressbar import ProgressBar
 from kivy.uix.popup import Popup
 from kivy.core.window import Window
-import sqlite3
+from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import os
-from openpyxl import load_workbook, Workbook
 from kivy.uix.switch import Switch
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
-Window.size = (500, 400)  # Tamaño inicial de la ventana
+Window.size = (390, 360)  # Tamaño inicial de la ventana
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -46,7 +45,6 @@ class ContadorApp(App):
         self.title = 'Contador de Revisiones'
         self.root = BoxLayout(orientation='vertical', padding=10, spacing=10)
         Window.bind(on_resize=self.on_window_resize)
-        self.init_db()
         
         # Checkboxes para Regalo ZZ, LOTE, Consumo
         self.check_regalo = CheckBox(size_hint=(None, None), size=(48, 48))
@@ -91,8 +89,8 @@ class ContadorApp(App):
         self.root.add_widget(checkbox_layout)
         
         # Barra deslizante y campo numérico
-        self.slider = Slider(min=0, max=1000, value=1, size_hint=(1, 0.1))  # Valor inicial cambiado a 1
-        self.slider_value = TextInput(text='1', multiline=False, size_hint=(None, None), size=(60, 48))  # Valor inicial cambiado a 1
+        self.slider = Slider(min=0, max=1000, value=0, size_hint=(1, 0.1))
+        self.slider_value = TextInput(text='0', multiline=False, size_hint=(None, None), size=(60, 48))
         self.slider.bind(value=self.on_slider_value_change)
         self.slider_value.bind(on_text_validate=self.on_text_value_change)
         
@@ -146,18 +144,6 @@ class ContadorApp(App):
         
         return self.root
 
-    def init_db(self):
-        self.conn = sqlite3.connect('db.db')
-        self.cursor = self.conn.cursor()
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS productos (
-                sku TEXT PRIMARY KEY,
-                titulo TEXT,
-                eans TEXT
-            )
-        ''')
-        self.conn.commit()
-
     def on_window_resize(self, instance, width, height):
         self.status_bar.text = f'Estado: Ventana redimensionada a {width}x{height}'
 
@@ -184,10 +170,7 @@ class ContadorApp(App):
             self.show_warning_popup('El campo EAN/SKU/ID\nno puede estar vacío.')
             return
 
-        self.show_loading_popup('Espere, cargando...')
-        self.root.do_layout()
         found, sku, title = self.search_product_in_db(ean)
-        self.loading_popup.dismiss()
         if found:
             self.ean_sku_id.text = sku
             self.marca_titulo.text = title
@@ -196,20 +179,18 @@ class ContadorApp(App):
             self.show_add_product_popup(ean)
 
     def search_product_in_db(self, ean):
-        self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', ('%' + ean + '%',))
-        result = self.cursor.fetchone()
-        if result:
-            return True, result[0], result[1]
-        return False, '', ''
+        if not os.path.exists('db.xlsx'):
+            return False, '', ''
 
-    def show_loading_popup(self, message):
-        content = BoxLayout(orientation='vertical', padding=10)
-        content.add_widget(Label(text=message, text_size=(280, None), halign='center'))
-        self.loading_popup = Popup(title='Cargando',
-                                   content=content,
-                                   size_hint=(0.6, 0.4),
-                                   auto_dismiss=False)
-        self.loading_popup.open()
+        wb = load_workbook('db.xlsx')
+        ws = wb.active
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            skus = str(row[0])
+            title = row[1]
+            eans = str(row[2]).split(',')
+            if ean in eans:
+                return True, skus, title
+        return False, '', ''
 
     def show_info_popup(self, title, message):
         content = BoxLayout(orientation='vertical', padding=10)
@@ -262,11 +243,10 @@ class ContadorApp(App):
         title = self.title_input.text.strip()
         eans = self.eans_input.text.strip()
         if sku and title and eans:
-            self.show_loading_popup('Añadiendo a la base de datos...')
-            self.root.do_layout()
-            self.cursor.execute('INSERT INTO productos (sku, titulo, eans) VALUES (?, ?, ?)', (sku, title, eans))
-            self.conn.commit()
-            self.loading_popup.dismiss()
+            wb = load_workbook('db.xlsx')
+            ws = wb.active
+            ws.append([sku, title, eans])
+            wb.save('db.xlsx')
             self.add_to_db_popup.dismiss()
             self.ean_sku_id.text = sku
             self.marca_titulo.text = title
@@ -337,8 +317,6 @@ class ContadorApp(App):
         else:
             self.registrar_revision('Solo Revisión')
             self.status_bar.text = 'Estado: Producto revisado'
-            self.slider.value = 1  # Volver a 1 después de revisar
-            self.slider_value.text = '1'  # Volver a 1 después de revisar
 
     def on_traducir(self, instance):
         self.traducir_popup = Popup(title='Traducciones',
@@ -375,8 +353,6 @@ class ContadorApp(App):
         self.mas_informaciones = self.mas_informaciones_input.text
         self.traduccion_tipo = traduccion_tipo
         self.traducir_popup.dismiss()
-        self.slider.value = 1  # Volver a 1 después de traducir
-        self.slider_value.text = '1'  # Volver a 1 después de traducir
 
     def on_traducido(self, instance):
         if not self.ean_sku_id.text.strip():
@@ -384,8 +360,6 @@ class ContadorApp(App):
         else:
             self.registrar_revision('Revisado y Traducido')
             self.status_bar.text = 'Estado: Producto traducido'
-            self.slider.value = 1  # Volver a 1 después de traducir
-            self.slider_value.text = '1'  # Volver a 1 después de traducir
 
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
@@ -428,8 +402,8 @@ class ContadorApp(App):
         self.check_pt.active = False
         self.check_es.active = False
         self.check_it.active = False
-        self.slider.value = 1  # Volver a 1 después de resetear la interfaz
-        self.slider_value.text = '1'  # Volver a 1 después de resetear la interfaz
+        self.slider.value = 0
+        self.slider_value.text = '0'
         self.check_und.active = False
         self.check_ml.active = False
         self.check_gr.active = False

@@ -1,0 +1,76 @@
+# FirstRelease_OLDmain.txt
+
+## Contenido de OLDmain.py
+
+El archivo `OLDmain.py` contenía la implementación inicial del contador de revisiones. Las principales funcionalidades incluían:
+
+- Inicialización del contador.
+- Incremento del contador.
+- Visualización del valor actual del contador.
+- Reseteo del contador a su valor inicial.
+
+El código estaba estructurado de la siguiente manera:
+
+```python
+# OLDmain.py
+class Contador:
+    def __init__(self):
+        self.valor = 0
+
+    def incrementar(self):
+        self.valor += 1
+
+    def mostrar(self):
+        print(f"Valor actual: {self.valor}")
+
+    def resetear(self):
+        self.valor = 0
+
+if __name__ == "__main__":
+    contador = Contador()
+    contador.incrementar()
+    contador.mostrar()
+    contador.resetear()
+    contador.mostrar()
+```
+
+## Diferencias con main2.py
+
+El archivo `main2.py` incluye mejoras y nuevas funcionalidades en comparación con `OLDmain.py`. Las principales diferencias son:
+
+- Se añadió la capacidad de decrementar el contador.
+- Se implementó un método para establecer un valor específico al contador.
+- Se mejoró la visualización del valor actual con un formato más detallado.
+
+El código de `main2.py` es el siguiente:
+
+```python
+# main2.py
+class Contador:
+    def __init__(self):
+        self.valor = 0
+
+    def incrementar(self):
+        self.valor += 1
+
+    def decrementar(self):
+        self.valor -= 1
+
+    def establecer_valor(self, valor):
+        self.valor = valor
+
+    def mostrar(self):
+        print(f"Valor actual del contador: {self.valor}")
+
+    def resetear(self):
+        self.valor = 0
+
+if __name__ == "__main__":
+    contador = Contador()
+    contador.incrementar()
+    contador.decrementar()
+    contador.establecer_valor(10)
+    contador.mostrar()
+    contador.resetear()
+    contador.mostrar()
+```
