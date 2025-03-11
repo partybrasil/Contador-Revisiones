@@ -43,7 +43,7 @@ class CustomSwitch(Switch):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones'
+        self.title = 'Contador de Revisiones (OFICIAL)'
         self.root = BoxLayout(orientation='vertical', padding=10, spacing=10)
         Window.bind(on_resize=self.on_window_resize)
         self.init_db()
@@ -190,9 +190,10 @@ class ContadorApp(App):
         found, sku, title = self.search_product_in_db(ean)
         self.loading_popup.dismiss()
         if found:
+            revision_status = self.check_revision_status(sku)
             self.ean_sku_id.text = sku
             self.marca_titulo.text = title
-            self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}')
+            self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}\n{revision_status}')
         else:
             self.show_add_product_popup(ean)
 
@@ -202,6 +203,17 @@ class ContadorApp(App):
         if result:
             return True, result[0], result[1]
         return False, '', ''
+
+    def check_revision_status(self, sku):
+        fecha = datetime.now().strftime('%d-%m-%Y')
+        archivo = f'REVs/REV-{fecha}.xlsx'
+        if os.path.exists(archivo):
+            wb = load_workbook(archivo)
+            ws = wb.active
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if row[0] == sku:
+                    return 'YA REVISADO/TRADUCIDO'
+        return 'SIN REVISION'
 
     def show_loading_popup(self, message):
         content = BoxLayout(orientation='vertical', padding=10)

@@ -136,6 +136,7 @@ class ContadorApp(App):
         
         # Barra de estado
         self.status_bar = Label(text='Estado: Esperando...', size_hint=(1, 0.1), color=(1, 1, 1, 1))
+        self.status_bar.bind(on_touch_down=self.on_status_bar_double_click)
         self.root.add_widget(self.status_bar)
         
         self.descripcion = ''
@@ -189,9 +190,10 @@ class ContadorApp(App):
         found, sku, title = self.search_product_in_db(ean)
         self.loading_popup.dismiss()
         if found:
+            revision_status = self.check_revision_status(sku)
             self.ean_sku_id.text = sku
             self.marca_titulo.text = title
-            self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}')
+            self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}\n{revision_status}')
         else:
             self.show_add_product_popup(ean)
 
@@ -201,6 +203,17 @@ class ContadorApp(App):
         if result:
             return True, result[0], result[1]
         return False, '', ''
+
+    def check_revision_status(self, sku):
+        fecha = datetime.now().strftime('%d-%m-%Y')
+        archivo = f'REVs/REV-{fecha}.xlsx'
+        if os.path.exists(archivo):
+            wb = load_workbook(archivo)
+            ws = wb.active
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if row[0] == sku:
+                    return 'YA REVISADO/TRADUCIDO'
+        return 'SIN REVISION'
 
     def show_loading_popup(self, message):
         content = BoxLayout(orientation='vertical', padding=10)
@@ -439,6 +452,11 @@ class ContadorApp(App):
         self.precauciones = ''
         self.mas_informaciones = ''
         self.traduccion_tipo = ''
+
+    def on_status_bar_double_click(self, instance, touch):
+        if touch.is_double_tap:
+            Window.size = (500, 400)
+            self.status_bar.text = 'Estado: Ventana restablecida a tamaño inicial'
 
 if __name__ == '__main__':
     ContadorApp().run()
