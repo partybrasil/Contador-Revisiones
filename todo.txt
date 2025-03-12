@@ -1,4 +1,4 @@
-# Travar/Lockear popup "Composición de Lote" igual que el de "Traducir" evita cerrar el popup hasta que se haga click en "aceptar". El problema es que hacer click fuera de la zona del popup, hace que este desaparezca.
+OK # Travar/Lockear popup "Composición de Lote" igual que el de "Traducir" evita cerrar el popup hasta que se haga click en "aceptar". El problema es que hacer click fuera de la zona del popup "Composición de Lote", hace que este desaparezca y pierda los datos.
 
 # Retornar imediatamente el foco en el campo de texto "EAN/SKU/ID" cuando se hace click en REVISADO o en TRADUCIDO, para instantaneamente se pueda seguir revisando sin necesidad de hacerle click en el campo de texto para volver a escribir.
 
@@ -9,4 +9,64 @@
 #Botón para un REV check manual?? y DB check manual??
 
 #Implementar una logica para sumarizar e contabilizar la revision diaria ("Solo Revisión" y "Revisado y Traducido") dando los totales en cada aspecto de la revision (mas criterios??)
+
+#Foco permanente en el campo de texto "EAN/SKU/ID" siempre que este vacio, el foco es fijado. Si deja de  estar vacio, el foco se libera hasta que vuelva a estar vacio.
+
+OFF #Integracion con el hardware lector de codigos de barras en la maquina local, campo "EAN/SKU/ID" (siempre escuchando puerta USB para posible escritura dual simultanea bidireccional "REMOTO <--> LOCAL") 
+
+OFF #Boton de Atajo bidireccional (comunicacion REMOTO <--> LOCAL) Cambio de ventanas y alternacion mediante atajo "CTRL+ALT+BREAK (PAUSE)"
+
+#Logica para evitar los duplicados en la rev del dia actual, si ya fue revisado y su SKU esta presente en el REV del dia actual, no se puede volver a revisar, si ya fue revisado y traducido, no se puede volver a incluir novamente en el REV file del dia actual, pedir confirmación "Aun asi, deseas duplicar esta revisión en el dia de hoy %NOMBRE_DEL_ARCHIVO_REV_DEL_DIA_ACTUAL%?", las respuestas siguen en los botones "SI" y "NO", en caso de "SI", se agrega la entrada en el REV file del dia actual aunque ya estuviera presente anteriormente. En caso de "NO" No lo agrega y vuelve a la interface para la siguiente revision.
+
+#NEW CHECKBOX TYPES: "LOTE" // "Set&Pack" // Consumo // "EDT & EDP" // "MakeUP" // "ZZ"
+
+#Crear Script TOOL para unificar todas las tools de creacion, migracion y conversion de DB.
+
+#REstructurar la DB, creando una carpeta DB, para las tools y almacenar las db.xlsx y db.db. Adaptando la app para que llame a la db en esa ubicacion. 
+
+#Agregar todos los tipos de productos con los que trabajop dentro de la combobox [definitivo o temporal??¿¿]
+
+#Implementar TOOL GUI DESIGNER, dentro de la app? como módulo? o como script independiente. Añadirlo a la TOOL DB MAster unificando tools?¿
+
+
+// Reformulación de la lista de tareas
+
+OK # Mejorar la funcionalidad del popup "Composición de Lote"
+- Bloquear el popup "Composición de Lote" igual que el de "Traducir". ok
+- Evitar que el popup desaparezca al hacer click fuera de su área. ok
+
+# Foco automático en el campo "EAN/SKU/ID"
+- Retornar inmediatamente el foco al campo "EAN/SKU/ID" al hacer click en REVISADO o TRADUCIDO.
+
+# Revisión de la modificación en la base de datos
+- Verificar la adición inesperada de la columna "estado" en la base de datos.
+- Asegurarse de que la lógica solo verifique la presencia del SKU en el archivo REV del día actual sin modificar la DB.
+
+# Implementar buscador/consultas en la interfaz
+- Crear un buscador con criterio full scope para buscar por palabras clave en la base de datos.
+
+# Botones para revisiones manuales
+- Añadir botones para realizar revisiones manuales en REV y DB.
+
+# Sumarización y contabilización de revisiones diarias
+- Implementar lógica para sumarizar y contabilizar las revisiones diarias.
+- Diferenciar entre "Solo Revisión" y "Revisado y Traducido".
+
+# Foco permanente en el campo "EAN/SKU/ID"
+- Mantener el foco en el campo "EAN/SKU/ID" siempre que esté vacío.
+- Liberar el foco cuando deje de estar vacío y fijarlo nuevamente si vuelve a estar vacío.
+
+# Evitar duplicados en las revisiones del día actual
+- No permitir revisiones duplicadas si el SKU ya está presente en el archivo REV del día actual.
+- Solicitar confirmación para duplicar revisiones con opciones "SI" y "NO".
+
+OK# Nuevos tipos de checkbox
+- Reordenar y Añadir nuevos tipos de checkbox (reordenando los ya existentes): "LOTE", (añadir) "Set & Pack" (misma logica y columna que LOTE, también dirige a "composición de lote" para indicar los EANs compuestos dentro, evita crear nueva funcion reutilizando la de "Composición de LOTE", aunque el tipo sea diferente), "Consumo", (añadir) "EDT & EDP", (añadir) "MakeUP", "Regalo ZZ (renombrar a ZZ)". Añadir una lista en combobox para elegir el tipo en una lista desplegable con barra de desplazamiento, donde los tipos que aparecen en esta lista se añaden en el código en un apartado (comentado y bien ubicado), donde se puede implementar nuevos tipos con facilidad y con pocos cambios. El formato de los checkbox deben seguir el formato actual, 3 checkbox luego abajo otros 3 bien alineados y responsivos, luego abajo la combobox va centrada arriba de "EAN/SKU/ID" con dos botones uno antes "EX1 (sin funcion implementada, reserva un espacio en el codigo para su futura implementación)" y otro despues del combobox "EX2 (sin funcion implementada, reserva un espacio en el codigo para su futura implementación)", en esa linea de espacio de la interface el combobox ocupa un 50% del espacio los botones que tiene antes y despues de la combobox son 25% uno y 25% el otro. No es necesário cambios en la DB, en caso de tener que cambiar algo en la estructura de la db no lo hagas sin avisarme. Avisame antes de cualquier cambio critico o de gran impacto.
+
+# Integración con hardware de lector de códigos de barras (OFF)
+- Integrar el campo "EAN/SKU/ID" con el hardware lector de códigos de barras.
+
+# Botón de atajo bidireccional (OFF)
+- Implementar un botón de atajo para comunicación bidireccional y cambio de ventanas con "CTRL+ALT+BREAK (PAUSE)".
+
 

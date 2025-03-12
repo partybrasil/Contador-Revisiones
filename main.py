@@ -326,7 +326,8 @@ class ContadorApp(App):
     def show_lote_popup(self):
         self.lote_popup = Popup(title='Composición de Lote',
                                 content=BoxLayout(orientation='vertical'),
-                                size_hint=(0.8, 0.5))
+                                size_hint=(0.8, 0.5),
+                                auto_dismiss=False)  # Evitar que el popup se cierre al hacer clic fuera
         self.lote_text_input = TextInput(hint_text='EANs separados por líneas', multiline=True)
         next_button = Button(text='Siguiente', size_hint=(1, 0.2))
         next_button.bind(on_press=self.on_next_lote)

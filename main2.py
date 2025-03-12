@@ -18,6 +18,7 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.clock import Clock
+from kivy.uix.dropdown import DropDown
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
@@ -64,23 +65,63 @@ class ContadorApp(App):
         top_button_layout.add_widget(self.reg_db_btn)
         self.root.add_widget(top_button_layout)
         
-        # Checkboxes para Regalo ZZ, LOTE, Consumo
-        self.check_regalo = CheckBox(size_hint=(None, None), size=(48, 48))
+        # Checkboxes para ZZ, LOTE, Set & Pack, Consumo, EDT & EDP, MakeUP
+        self.check_zz = CheckBox(size_hint=(None, None), size=(48, 48))
         self.check_lote = CheckBox(size_hint=(None, None), size=(48, 48))
+        self.check_set_pack = CheckBox(size_hint=(None, None), size=(48, 48))
         self.check_consumo = CheckBox(size_hint=(None, None), size=(48, 48))
+        self.check_edt_edp = CheckBox(size_hint=(None, None), size=(48, 48))
+        self.check_makeup = CheckBox(size_hint=(None, None), size=(48, 48))
         
-        self.check_regalo.bind(active=self.on_special_checkbox_active)
+        self.check_zz.bind(active=self.on_special_checkbox_active)
         self.check_lote.bind(active=self.on_special_checkbox_active)
+        self.check_set_pack.bind(active=self.on_special_checkbox_active)
         self.check_consumo.bind(active=self.on_special_checkbox_active)
+        self.check_edt_edp.bind(active=self.on_special_checkbox_active)
+        self.check_makeup.bind(active=self.on_special_checkbox_active)
         
-        special_checkbox_layout = BoxLayout(size_hint=(1, 0.1))
-        special_checkbox_layout.add_widget(Label(text='Regalo ZZ', color=(1, 1, 1, 1)))
-        special_checkbox_layout.add_widget(self.check_regalo)
-        special_checkbox_layout.add_widget(Label(text='LOTE', color=(1, 1, 1, 1)))
-        special_checkbox_layout.add_widget(self.check_lote)
-        special_checkbox_layout.add_widget(Label(text='Consumo', color=(1, 1, 1, 1)))
-        special_checkbox_layout.add_widget(self.check_consumo)
-        self.root.add_widget(special_checkbox_layout)
+        special_checkbox_layout1 = BoxLayout(size_hint=(1, 0.1))
+        special_checkbox_layout1.add_widget(Label(text='ZZ', color=(1, 1, 1, 1)))
+        special_checkbox_layout1.add_widget(self.check_zz)
+        special_checkbox_layout1.add_widget(Label(text='LOTE', color=(1, 1, 1, 1)))
+        special_checkbox_layout1.add_widget(self.check_lote)
+        special_checkbox_layout1.add_widget(Label(text='Set & Pack', color=(1, 1, 1, 1)))
+        special_checkbox_layout1.add_widget(self.check_set_pack)
+        
+        special_checkbox_layout2 = BoxLayout(size_hint=(1, 0.1))
+        special_checkbox_layout2.add_widget(Label(text='Consumo', color=(1, 1, 1, 1)))
+        special_checkbox_layout2.add_widget(self.check_consumo)
+        special_checkbox_layout2.add_widget(Label(text='MakeUP', color=(1, 1, 1, 1)))
+        special_checkbox_layout2.add_widget(self.check_makeup)
+        special_checkbox_layout2.add_widget(Label(text='EDT & EDP', color=(1, 1, 1, 1)))
+        special_checkbox_layout2.add_widget(self.check_edt_edp)
+        
+        self.root.add_widget(special_checkbox_layout1)
+        self.root.add_widget(special_checkbox_layout2)
+        
+        # Combobox para seleccionar tipo
+        self.dropdown = DropDown()
+        self.tipo_combobox = Button(text='Seleccionar Tipo', size_hint=(0.5, 1))
+        self.tipo_combobox.bind(on_release=self.dropdown.open)
+        
+        # Lista de tipos
+        self.tipos = ['Ejemplo', 'Ejemplo1', 'Ejemplo2', 'Ejemplo3', 'Ejemplo4', 'Ejemplo5']
+        for tipo in self.tipos:
+            btn = Button(text=tipo, size_hint_y=None, height=44)
+            btn.bind(on_release=lambda btn: self.dropdown.select(btn.text))
+            self.dropdown.add_widget(btn)
+        self.dropdown.bind(on_select=self.on_tipo_select)
+        
+        # Botones EX1 y EX2
+        self.ex1_btn = Button(text='EX1', size_hint=(0.25, 1))
+        self.ex2_btn = Button(text='EX2', size_hint=(0.25, 1))
+        
+        combobox_layout = BoxLayout(size_hint=(1, 0.1))
+        combobox_layout.add_widget(self.ex1_btn)
+        combobox_layout.add_widget(self.tipo_combobox)
+        combobox_layout.add_widget(self.ex2_btn)
+        
+        self.root.add_widget(combobox_layout)
         
         # Campo de texto EAN/SKU/ID
         self.ean_sku_id = TextInput(hint_text='EAN/SKU/ID', multiline=False, size_hint=(1, 0.1))
@@ -310,23 +351,56 @@ class ContadorApp(App):
         else:
             self.show_warning_popup('Todos los campos son obligatorios.')
 
+    def on_tipo_select(self, instance, x):
+        self.tipo_combobox.text = x
+        self.selected_tipo = x
+
     def on_special_checkbox_active(self, checkbox, value):
         if value:
-            if checkbox == self.check_regalo:
+            if checkbox == self.check_zz:
+                self.check_lote.active = False
+                self.check_set_pack.active = False
+                self.check_consumo.active = False
+                self.check_edt_edp.active = False
+                self.check_makeup.active = False
+            elif checkbox == self.check_lote:
+                self.check_zz.active = False
+                self.check_set_pack.active = False
+                self.check_consumo.active = False
+                self.check_edt_edp.active = False
+                self.check_makeup.active = False
+                self.show_lote_popup()
+            elif checkbox == self.check_set_pack:
+                self.check_zz.active = False
                 self.check_lote.active = False
                 self.check_consumo.active = False
-            elif checkbox == self.check_lote:
-                self.check_regalo.active = False
-                self.check_consumo.active = False
+                self.check_edt_edp.active = False
+                self.check_makeup.active = False
                 self.show_lote_popup()
             elif checkbox == self.check_consumo:
-                self.check_regalo.active = False
+                self.check_zz.active = False
                 self.check_lote.active = False
+                self.check_set_pack.active = False
+                self.check_edt_edp.active = False
+                self.check_makeup.active = False
+            elif checkbox == self.check_edt_edp:
+                self.check_zz.active = False
+                self.check_lote.active = False
+                self.check_set_pack.active = False
+                self.check_consumo.active = False
+                self.check_makeup.active = False
+            elif checkbox == self.check_makeup:
+                self.check_zz.active = False
+                self.check_lote.active = False
+                self.check_set_pack.active = False
+                self.check_consumo.active = False
+                self.check_edt_edp.active = False
 
     def show_lote_popup(self):
         self.lote_popup = Popup(title='Composición de Lote',
                                 content=BoxLayout(orientation='vertical'),
-                                size_hint=(0.8, 0.5))
+                                size_hint=(0.8, 0.5),
+                                auto_dismiss=False)  # Evitar que el popup se cierre al hacer clic fuera
         self.lote_text_input = TextInput(hint_text='EANs separados por líneas', multiline=True)
         next_button = Button(text='Siguiente', size_hint=(1, 0.2))
         next_button.bind(on_press=self.on_next_lote)
@@ -460,13 +534,13 @@ class ContadorApp(App):
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
         marca_titulo = self.marca_titulo.text
-        tipo = 'Regalo ZZ' if self.check_regalo.active else 'LOTE' if self.check_lote.active else 'Consumo' if self.check_consumo.active else ''
+        tipo = self.selected_tipo if hasattr(self, 'selected_tipo') else 'ZZ' if self.check_zz.active else 'LOTE' if self.check_lote.active else 'Set & Pack' if self.check_set_pack.active else 'Consumo' if self.check_consumo.active else 'EDT & EDP' if self.check_edt_edp.active else 'MakeUP' if self.check_makeup.active else ''
         tiene_pt = 'Tiene PT' if self.check_pt.active else 'No Tiene PT - TRADUZIDO'
         tiene_es = 'Tiene ES' if self.check_es.active else 'No Tiene ES - TRADUCIDO'
         tiene_it = 'Tiene IT' if self.check_it.active else 'No Tiene IT - TRADOTTO'
         cantidad_neta = self.slider_value.text
         unidad = 'UND' if self.check_und.active else 'ML' if self.check_ml.active else 'GR' if self.check_gr.active else ''
-        composicion_lote = self.lote_composition if self.check_lote.active else ''
+        composicion_lote = self.lote_composition if self.check_lote.active or self.check_set_pack.active else ''
         
         fecha = datetime.now().strftime('%d-%m-%Y')
         archivo = f'REVs/REV-{fecha}.xlsx'
@@ -495,9 +569,12 @@ class ContadorApp(App):
     def reset_fields(self):
         self.ean_sku_id.text = ''
         self.marca_titulo.text = ''
-        self.check_regalo.active = False
+        self.check_zz.active = False
         self.check_lote.active = False
+        self.check_set_pack.active = False
         self.check_consumo.active = False
+        self.check_edt_edp.active = False
+        self.check_makeup.active = False
         self.check_pt.active = False
         self.check_es.active = False
         self.check_it.active = False
@@ -515,6 +592,9 @@ class ContadorApp(App):
         self.modo_empleo_it = ''
         self.precauciones_it = ''
         self.mas_informaciones_it = ''
+        self.tipo_combobox.text = 'Seleccionar Tipo'
+        if hasattr(self, 'selected_tipo'):
+            del self.selected_tipo
         
         # Inicializar campos de entrada de traducción si no existen
         if hasattr(self, 'descripcion_input_pt'):
