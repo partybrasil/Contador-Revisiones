@@ -28,6 +28,17 @@ OFF #Boton de Atajo bidireccional (comunicacion REMOTO <--> LOCAL) Cambio de ven
 
 #Implementar TOOL GUI DESIGNER, dentro de la app? como módulo? o como script independiente. Añadirlo a la TOOL DB MAster unificando tools?¿
 
+#Implementar logica o funcion para la extraccion de SKUs sin revision en SGA ALL.xlsx, todo que tenga valor zero "0" en revision portuguesa e italiana (Etiqueta Portuuesa+Etiqueta Italiana, no en etiquetado) extrayendo los SKUs para separar y pedir almacén. 
+
+#Implementar tools individuales, Excel-Combiner + Excel-Divider como tools de la app principal, para unificar todas las tools en una sola app.
+
+#Implementar modulo o función  para scope ubi en almacenes?
+
+#Capacidad para la app manejar modulos, añadir mini apps, que funciones serian vitales para la revision, traduccion e internacionalizacion. (Buscar productos sin revision en archivo maestro SGA ALL.xlsx)
+
+#Contador Counter live fijado incremental: 
+*Revisados: %SoloRevisados%
+*Traducidos: %SoloRevisados% + %TRADUCIDOS%
 
 // Reformulación de la lista de tareas
 
