@@ -42,6 +42,8 @@ OFF #Boton de Atajo bidireccional (comunicacion REMOTO <--> LOCAL) Cambio de ven
 
 #iMPLEMENTAR CONTADOR DE TURNO, MARCAR ENTRADA/SALIDA-MAÑANA-TARDE
 
+#Colaboradores agregados al proyecto para que me ayuden [Party y Kira]
+
 
 
 // Reformulación de la lista de tareas
