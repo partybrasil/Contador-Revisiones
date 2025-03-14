@@ -40,6 +40,10 @@ OFF #Boton de Atajo bidireccional (comunicacion REMOTO <--> LOCAL) Cambio de ven
 *Revisados: %SoloRevisados%
 *Traducidos: %SoloRevisados% + %TRADUCIDOS%
 
+#iMPLEMENTAR CONTADOR DE TURNO, MARCAR ENTRADA/SALIDA-MAÑANA-TARDE
+
+
+
 // Reformulación de la lista de tareas
 
 OK # Mejorar la funcionalidad del popup "Composición de Lote"
