@@ -22,7 +22,7 @@ from kivy.uix.dropdown import DropDown
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
-Window.size = (500, 400)  # Tamaño inicial de la ventana
+Window.size = (550, 450)  # Tamaño inicial de la ventana
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -602,7 +602,7 @@ class ContadorApp(App):
 
     def on_status_bar_double_click(self, instance, touch):
         if touch.is_double_tap:
-            Window.size = (500, 400)
+            Window.size = (550, 450)
             self.status_bar.text = 'Estado: Ventana restablecida a tamaño inicial'
 
     def on_historial(self, instance):
