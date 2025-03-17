@@ -113,7 +113,8 @@ class ContadorApp(App):
         self.dropdown.bind(on_select=self.on_tipo_select)
         
         # Botones EX1 y EX2
-        self.ex1_btn = Button(text='EX1', size_hint=(0.25, 1))
+        self.ex1_btn = Button(text='LOCK', size_hint=(0.25, 1))
+        self.ex1_btn.bind(on_press=self.toggle_lock_mode)
         self.ex2_btn = Button(text='EX2', size_hint=(0.25, 1))
         
         combobox_layout = BoxLayout(size_hint=(1, 0.1))
@@ -210,6 +211,9 @@ class ContadorApp(App):
         self.modo_empleo_it = ''
         self.precauciones_it = ''
         self.mas_informaciones_it = ''
+        
+        self.lock_mode = False  # Estado inicial del modo bloqueo
+        self.locked_values = {}  # Diccionario para almacenar los valores bloqueados
         
         return self.root
 
@@ -446,9 +450,12 @@ class ContadorApp(App):
         if not self.ean_sku_id.text.strip():
             self.show_warning_popup('El campo EAN/SKU/ID\nno puede estar vacío.')
         else:
+            if self.lock_mode:
+                self.apply_locked_values()
             self.registrar_revision('Solo Revisión')
             self.status_bar.text = 'Estado: Producto revisado'
             self.reset_fields()  # Limpiar campos después de revisar
+            self.ean_sku_id.focus = True  # Volver el foco al campo "EAN/SKU/ID"
 
     def on_traducir(self, instance):
         self.traducir_popup = Popup(title='Traducciones',
@@ -527,9 +534,12 @@ class ContadorApp(App):
         if not self.ean_sku_id.text.strip():
             self.show_warning_popup('El campo EAN/SKU/ID\nno puede estar vacío.')
         else:
+            if self.lock_mode:
+                self.apply_locked_values()
             self.registrar_revision('Revisado y Traducido')
             self.status_bar.text = 'Estado: Producto traducido'
             self.reset_fields()  # Limpiar campos después de traducir
+            self.ean_sku_id.focus = True  # Volver el foco al campo "EAN/SKU/ID"
 
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
@@ -592,13 +602,20 @@ class ContadorApp(App):
         self.modo_empleo_it = ''
         self.precauciones_it = ''
         self.mas_informaciones_it = ''
-        self.tipo_combobox.text = 'Seleccionar Tipo'
-        if hasattr(self, 'selected_tipo'):
-            del self.selected_tipo
+        if self.lock_mode:
+            self.apply_locked_values()
+        else:
+            self.tipo_combobox.text = 'Seleccionar Tipo'
+            if hasattr(self, 'selected_tipo'):
+                del self.selected_tipo
+        self.ean_sku_id.focus = True  # Volver el foco al campo "EAN/SKU/ID"
         
         # Inicializar campos de entrada de traducción si no existen
         if hasattr(self, 'descripcion_input_pt'):
             self.load_traduccion_data()  # Limpiar los campos de traducción
+
+    def focus_ean_sku_id(self, dt):
+        self.ean_sku_id.focus = True
 
     def on_status_bar_double_click(self, instance, touch):
         if touch.is_double_tap:
@@ -660,6 +677,49 @@ class ContadorApp(App):
             self.status_bar.text = 'Estado: Interfaz reseteada'
         else:
             self.status_bar.text = 'Estado: Reset cancelado'
+
+    def toggle_lock_mode(self, instance):
+        self.lock_mode = not self.lock_mode
+        if self.lock_mode:
+            self.locked_values = {
+                'tipo': self.tipo_combobox.text,
+                'check_zz': self.check_zz.active,
+                'check_lote': self.check_lote.active,
+                'check_set_pack': self.check_set_pack.active,
+                'check_consumo': self.check_consumo.active,
+                'check_edt_edp': self.check_edt_edp.active,
+                'check_makeup': self.check_makeup.active,
+                'check_pt': self.check_pt.active,
+                'check_es': self.check_es.active,
+                'check_it': self.check_it.active,
+                'slider_value': self.slider.value,
+                'slider_text': self.slider_value.text,  # Agregar el valor del campo numérico
+                'check_und': self.check_und.active,
+                'check_ml': self.check_ml.active,
+                'check_gr': self.check_gr.active
+            }
+            self.ex1_btn.background_color = (1, 0, 0, 1)  # Cambiar color del botón a rojo
+            self.status_bar.text = 'Estado: Modo bloqueo activado'
+        else:
+            self.ex1_btn.background_color = (1, 1, 1, 1)  # Restaurar color del botón
+            self.status_bar.text = 'Estado: Modo bloqueo desactivado'
+
+    def apply_locked_values(self):
+        self.tipo_combobox.text = self.locked_values['tipo']
+        self.check_zz.active = self.locked_values['check_zz']
+        self.check_lote.active = self.locked_values['check_lote']
+        self.check_set_pack.active = self.locked_values['check_set_pack']
+        self.check_consumo.active = self.locked_values['check_consumo']
+        self.check_edt_edp.active = self.locked_values['check_edt_edp']
+        self.check_makeup.active = self.locked_values['check_makeup']
+        self.check_pt.active = self.locked_values['check_pt']
+        self.check_es.active = self.locked_values['check_es']
+        self.check_it.active = self.locked_values['check_it']
+        self.slider.value = self.locked_values['slider_value']
+        self.slider_value.text = self.locked_values['slider_text']  # Aplicar el valor del campo numérico
+        self.check_und.active = self.locked_values['check_und']
+        self.check_ml.active = self.locked_values['check_ml']
+        self.check_gr.active = self.locked_values['check_gr']
 
 if __name__ == '__main__':
     ContadorApp().run()
