@@ -46,7 +46,7 @@ class CustomSwitch(Switch):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (DESARROLLO)'
+        self.title = 'Contador de Revisiones (DESARROLLOv2)'
         self.root = BoxLayout(orientation='vertical', padding=10, spacing=10)
         Window.bind(on_resize=self.on_window_resize)
         self.init_db()
