@@ -44,6 +44,8 @@ OFF #Boton de Atajo bidireccional (comunicacion REMOTO <--> LOCAL) Cambio de ven
 
 #Colaboradores agregados al proyecto para que me ayuden [Party y Kira]
 
+#Debugar funcion similar a lote+composição de lote [con target en SET&PACK] por algun motivo lockea en composicion al salvar.
+
 
 
 // Reformulación de la lista de tareas
