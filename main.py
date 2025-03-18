@@ -19,6 +19,7 @@ from kivy.graphics import Color, Rectangle
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.clock import Clock
 from kivy.uix.dropdown import DropDown
+from kivy.uix.screenmanager import ScreenManager, Screen
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
@@ -44,12 +45,70 @@ class CustomSwitch(Switch):
     def on_pos(self, *args):
         self.on_active(self, self.active)
 
+class LoginScreen(Screen):
+    def __init__(self, **kwargs):
+        super(LoginScreen, self).__init__(**kwargs)
+        self.layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        self.add_widget(self.layout)
+
+        self.username_input = TextInput(hint_text='Usuario', multiline=False, size_hint=(1, 0.2))
+        self.username_input.bind(on_text_validate=self.focus_password_input)  # Enfocar en contraseña al presionar Enter
+        self.password_input = TextInput(hint_text='Contraseña', multiline=False, password=True, size_hint=(1, 0.2))
+        self.password_input.bind(on_text_validate=self.validate_credentials)  # Validar credenciales al presionar Enter
+        self.login_button = Button(text='Entrar', size_hint=(1, 0.2))
+        self.login_button.bind(on_press=self.validate_credentials)
+        self.exit_button = Button(text='Salir', size_hint=(1, 0.2))
+        self.exit_button.bind(on_press=self.exit_app)
+
+        self.layout.add_widget(self.username_input)
+        self.layout.add_widget(self.password_input)
+        self.layout.add_widget(self.login_button)
+        self.layout.add_widget(self.exit_button)
+
+    def focus_password_input(self, instance):
+        self.password_input.focus = True
+
+    def validate_credentials(self, instance):
+        if self.username_input.text == 'admin' and self.password_input.text == 'admin':
+            self.manager.current = 'main'
+            App.get_running_app().restore_interface_state()  # Restaurar el estado de la interfaz
+        else:
+            self.show_error_popup('Credenciales incorrectas')
+
+    def show_error_popup(self, message):
+        content = BoxLayout(orientation='vertical', padding=10)
+        content.add_widget(Label(text=message, text_size=(280, None), halign='center'))
+        popup = Popup(title='Error',
+                      content=content,
+                      size_hint=(0.6, 0.4))
+        popup.open()
+
+    def exit_app(self, instance):
+        App.get_running_app().stop()
+
+    def reset_fields(self):
+        self.username_input.text = ''
+        self.password_input.text = ''
+
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (OFFICIAL)'
+        self.title = 'Contador de Revisiones (OFFICIALv2)'
+        self.screen_manager = ScreenManager()
+
+        self.login_screen = LoginScreen(name='login')
+        self.main_screen = Screen(name='main')
+        self.main_screen.add_widget(self.build_main_interface())
+
+        self.screen_manager.add_widget(self.login_screen)
+        self.screen_manager.add_widget(self.main_screen)
+
+        return self.screen_manager
+
+    def build_main_interface(self):
         self.root = BoxLayout(orientation='vertical', padding=10, spacing=10)
         Window.bind(on_resize=self.on_window_resize)
         self.init_db()
+        Window.bind(on_request_close=self.on_request_close)
         
         # Botones superiores
         top_button_layout = BoxLayout(size_hint=(1, 0.1))
@@ -115,7 +174,8 @@ class ContadorApp(App):
         # Botones EX1 y EX2
         self.ex1_btn = Button(text='LOCK', size_hint=(0.25, 1))
         self.ex1_btn.bind(on_press=self.toggle_lock_mode)
-        self.ex2_btn = Button(text='EX2', size_hint=(0.25, 1))
+        self.ex2_btn = Button(text='IN/OUT', size_hint=(0.25, 1))  # Renombrar a "IN/OUT"
+        self.ex2_btn.bind(on_press=self.toggle_login_screen)  # Vincular a la nueva función
         
         combobox_layout = BoxLayout(size_hint=(1, 0.1))
         combobox_layout.add_widget(self.ex1_btn)
@@ -215,6 +275,7 @@ class ContadorApp(App):
         self.lock_mode = False  # Estado inicial del modo bloqueo
         self.locked_values = {}  # Diccionario para almacenar los valores bloqueados
         
+        Clock.schedule_interval(self.check_focus, 0.1)  # Verificar el foco cada 0.1 segundos
         return self.root
 
     def init_db(self):
@@ -234,7 +295,7 @@ class ContadorApp(App):
 
     def focus_next(self, instance):
         next_widget = instance.get_focus_next()
-        if next_widget:
+        if (next_widget):
             next_widget.focus = True
 
     def on_slider_value_change(self, instance, value):
@@ -266,6 +327,7 @@ class ContadorApp(App):
             self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}\n{revision_status}')
         else:
             self.show_add_product_popup(ean)
+        self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
     def search_product_in_db(self, ean):
         self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', ('%' + ean + '%',))
@@ -299,8 +361,22 @@ class ContadorApp(App):
         content.add_widget(Label(text=message, text_size=(280, None), halign='center'))
         popup = Popup(title=title,
                       content=content,
-                      size_hint=(0.6, 0.4))
+                      size_hint=(0.6, 0.4),
+                      auto_dismiss=False)
+        popup.bind(on_dismiss=self.on_info_popup_dismiss)
+        Window.bind(on_key_down=self.on_key_down)
+        self.info_popup = popup
         popup.open()
+
+    def on_info_popup_dismiss(self, instance):
+        Window.unbind(on_key_down=self.on_key_down)
+
+    def on_key_down(self, window, key, *args):
+        if key in [27, 13]:  # Códigos de tecla ESC [27] y ENTER [13]
+            if hasattr(self, 'info_popup') and self.info_popup:
+                self.info_popup.dismiss()
+                return True
+        return False
 
     def show_add_product_popup(self, ean):
         content = BoxLayout(orientation='vertical', padding=10)
@@ -455,7 +531,7 @@ class ContadorApp(App):
             self.registrar_revision('Solo Revisión')
             self.status_bar.text = 'Estado: Producto revisado'
             self.reset_fields()  # Limpiar campos después de revisar
-            self.ean_sku_id.focus = True  # Volver el foco al campo "EAN/SKU/ID"
+            self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
     def on_traducir(self, instance):
         self.traducir_popup = Popup(title='Traducciones',
@@ -539,7 +615,7 @@ class ContadorApp(App):
             self.registrar_revision('Revisado y Traducido')
             self.status_bar.text = 'Estado: Producto traducido'
             self.reset_fields()  # Limpiar campos después de traducir
-            self.ean_sku_id.focus = True  # Volver el foco al campo "EAN/SKU/ID"
+            self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
@@ -608,7 +684,7 @@ class ContadorApp(App):
             self.tipo_combobox.text = 'Seleccionar Tipo'
             if hasattr(self, 'selected_tipo'):
                 del self.selected_tipo
-        self.ean_sku_id.focus = True  # Volver el foco al campo "EAN/SKU/ID"
+        self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
         
         # Inicializar campos de entrada de traducción si no existen
         if hasattr(self, 'descripcion_input_pt'):
@@ -700,6 +776,7 @@ class ContadorApp(App):
             }
             self.ex1_btn.background_color = (1, 0, 0, 1)  # Cambiar color del botón a rojo
             self.status_bar.text = 'Estado: Modo bloqueo activado'
+            self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
         else:
             self.ex1_btn.background_color = (1, 1, 1, 1)  # Restaurar color del botón
             self.status_bar.text = 'Estado: Modo bloqueo desactivado'
@@ -726,9 +803,109 @@ class ContadorApp(App):
             self.dropdown.parent.remove_widget(self.dropdown)
         self.dropdown.open(instance)
 
+    def check_focus(self, dt):
+        if self.lock_mode and not self.ean_sku_id.focus:
+            self.ean_sku_id.focus = True
+        self.highlight_focus()
+
+    def highlight_focus(self):
+        if self.ean_sku_id.focus:
+            self.ean_sku_id.background_color = (1, 0, 0, 1)  # Rojo si tiene el foco
+        else:
+            self.ean_sku_id.background_color = (0, 1, 0, 1)  # Verde si no tiene el foco
+
+    def on_request_close(self, *args, **kwargs):
+        self.show_exit_confirmation()
+        return True  # Evitar el cierre automático
+
+    def show_exit_confirmation(self):
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        content.add_widget(Label(text='¿Está seguro de que desea cerrar la aplicación?'))
+        button_layout = BoxLayout(size_hint=(1, 0.2))
+        yes_button = Button(text='Sí')
+        yes_button.bind(on_press=self.confirm_exit)
+        no_button = Button(text='No')
+        no_button.bind(on_press=lambda x: self.exit_confirmation_popup.dismiss())
+        button_layout.add_widget(yes_button)
+        button_layout.add_widget(no_button)
+        content.add_widget(button_layout)
+        self.exit_confirmation_popup = Popup(title='Confirmación de salida',
+                                             content=content,
+                                             size_hint=(0.6, 0.4))
+        self.exit_confirmation_popup.open()
+
+    def confirm_exit(self, instance):
+        self.exit_confirmation_popup.dismiss()
+        App.get_running_app().stop()
+
+    def toggle_login_screen(self, instance):
+        # Guardar el estado actual de la interfaz
+        self.saved_state = {
+            'ean_sku_id': self.ean_sku_id.text,
+            'marca_titulo': self.marca_titulo.text,
+            'check_zz': self.check_zz.active,
+            'check_lote': self.check_lote.active,
+            'check_set_pack': self.check_set_pack.active,
+            'check_consumo': self.check_consumo.active,
+            'check_edt_edp': self.check_edt_edp.active,
+            'check_makeup': self.check_makeup.active,
+            'check_pt': self.check_pt.active,
+            'check_es': self.check_es.active,
+            'check_it': self.check_it.active,
+            'slider_value': self.slider.value,
+            'slider_text': self.slider_value.text,
+            'check_und': self.check_und.active,
+            'check_ml': self.check_ml.active,
+            'check_gr': self.check_gr.active,
+            'tipo_combobox': self.tipo_combobox.text,
+            'descripcion_pt': self.descripcion_pt,
+            'modo_empleo_pt': self.modo_empleo_pt,
+            'precauciones_pt': self.precauciones_pt,
+            'mas_informaciones_pt': self.mas_informaciones_pt,
+            'descripcion_it': self.descripcion_it,
+            'modo_empleo_it': self.modo_empleo_it,
+            'precauciones_it': self.precauciones_it,
+            'mas_informaciones_it': self.mas_informaciones_it
+        }
+        # Limpiar los campos de entrada de la pantalla de login
+        self.login_screen.reset_fields()
+        # Cambiar a la pantalla de login
+        self.screen_manager.current = 'login'
+
+    def restore_interface_state(self):
+        # Restaurar el estado guardado de la interfaz
+        if hasattr(self, 'saved_state'):
+            self.ean_sku_id.text = self.saved_state['ean_sku_id']
+            self.marca_titulo.text = self.saved_state['marca_titulo']
+            self.check_zz.active = self.saved_state['check_zz']
+            self.check_lote.active = self.saved_state['check_lote']
+            self.check_set_pack.active = self.saved_state['check_set_pack']
+            self.check_consumo.active = self.saved_state['check_consumo']
+            self.check_edt_edp.active = self.saved_state['check_edt_edp']
+            self.check_makeup.active = self.saved_state['check_makeup']
+            self.check_pt.active = self.saved_state['check_pt']
+            self.check_es.active = self.saved_state['check_es']
+            self.check_it.active = self.saved_state['check_it']
+            self.slider.value = self.saved_state['slider_value']
+            self.slider_value.text = self.saved_state['slider_text']
+            self.check_und.active = self.saved_state['check_und']
+            self.check_ml.active = self.saved_state['check_ml']
+            self.check_gr.active = self.saved_state['check_gr']
+            self.tipo_combobox.text = self.saved_state['tipo_combobox']
+            self.descripcion_pt = self.saved_state['descripcion_pt']
+            self.modo_empleo_pt = self.saved_state['modo_empleo_pt']
+            self.precauciones_pt = self.saved_state['precauciones_pt']
+            self.mas_informaciones_pt = self.saved_state['mas_informaciones_pt']
+            self.descripcion_it = self.saved_state['descripcion_it']
+            self.modo_empleo_it = self.saved_state['modo_empleo_it']
+            self.precauciones_it = self.saved_state['precauciones_it']
+            self.mas_informaciones_it = self.saved_state['mas_informaciones_it']
+
 if __name__ == '__main__':
     try:
         ContadorApp().run()
+    except KeyboardInterrupt:
+        print("Aplicación cerrada por el usuario.")
     except Exception as e:
         import traceback
         print("Ocurrió un error inesperado:")
