@@ -1,50 +1,4 @@
-OK # Travar/Lockear popup "Composición de Lote" igual que el de "Traducir" evita cerrar el popup hasta que se haga click en "aceptar". El problema es que hacer click fuera de la zona del popup "Composición de Lote", hace que este desaparezca y pierda los datos.
-
-OK # Retornar imediatamente el foco en el campo de texto "EAN/SKU/ID" cuando se hace click en REVISADO o en TRADUCIDO, para instantaneamente se pueda seguir revisando sin necesidad de hacerle click en el campo de texto para volver a escribir.
-
-OK #Revisar nueva modificacion que inesperadamente añadio en la base de datos una nueva columna llamada "estado", cuando eso era solamente parte de la funcion implementada de verificar el estado de revision, si ya habia sido revisado antes, esta logica busca si el SKU del EAN consultado en "EAN/SKU/ID" se encuentra en el xlsx REV del dia actual. Sin hacer modificaciones en la DB, ni en el REV tampoco (solo debe verificar si esta presente en las revisiones del dia actual).
-
 #Buscador / Consultas, con criterio full scope, para buscar por palabras clave en la base de datos desde la interface.
-
-OFF #Botón para un REV check manual?? y DB check manual??
-
-OFF #Implementar una logica para sumarizar e contabilizar la revision diaria ("Solo Revisión" y "Revisado y Traducido") dando los totales en cada aspecto de la revision (mas criterios??)
-
-OK #Foco permanente en el campo de texto "EAN/SKU/ID" siempre que este vacio, el foco es fijado. Si deja de  estar vacio, el foco se libera hasta que vuelva a estar vacio.
-
-OFF #Integracion con el hardware lector de codigos de barras en la maquina local, campo "EAN/SKU/ID" (siempre escuchando puerta USB para posible escritura dual simultanea bidireccional "REMOTO <--> LOCAL") 
-
-OFF #Boton de Atajo bidireccional (comunicacion REMOTO <--> LOCAL) Cambio de ventanas y alternacion mediante atajo "CTRL+ALT+BREAK (PAUSE)"
-
-OK #Logica para evitar los duplicados en la rev del dia actual, si ya fue revisado y su SKU esta presente en el REV del dia actual, no se puede volver a revisar, si ya fue revisado y traducido, no se puede volver a incluir novamente en el REV file del dia actual, pedir confirmación "Aun asi, deseas duplicar esta revisión en el dia de hoy %NOMBRE_DEL_ARCHIVO_REV_DEL_DIA_ACTUAL%?", las respuestas siguen en los botones "SI" y "NO", en caso de "SI", se agrega la entrada en el REV file del dia actual aunque ya estuviera presente anteriormente. En caso de "NO" No lo agrega y vuelve a la interface para la siguiente revision.
-
-OK #NEW CHECKBOX TYPES: "LOTE" // "Set&Pack" // Consumo // "EDT & EDP" // "MakeUP" // "ZZ"
-
-OFF #Crear Script TOOL para unificar todas las tools de creacion, migracion y conversion de DB.
-
-OFF #REstructurar la DB, creando una carpeta DB, para las tools y almacenar las db.xlsx y db.db. Adaptando la app para que llame a la db en esa ubicacion. 
-
-OK #Agregar todos los tipos de productos con los que trabajop dentro de la combobox [definitivo o temporal??¿¿]
-
-OFF #Implementar TOOL GUI DESIGNER, dentro de la app? como módulo? o como script independiente. Añadirlo a la TOOL DB MAster unificando tools?¿
-
-#Implementar logica o funcion para la extraccion de SKUs sin revision en SGA ALL.xlsx, todo que tenga valor zero "0" en revision portuguesa e italiana (Etiqueta Portuuesa+Etiqueta Italiana, no en etiquetado) extrayendo los SKUs para separar y pedir almacén. 
-
-#Implementar tools individuales, Excel-Combiner + Excel-Divider como tools de la app principal, para unificar todas las tools en una sola app.
-#Capacidad para la app manejar modulos, añadir mini apps, que funciones serian vitales para la revision, traduccion e internacionalizacion. (Buscar productos sin revision en archivo maestro SGA ALL.xlsx)
-
-#Contador Counter live fijado incremental: 
-*Revisados: %SoloRevisados%
-*Traducidos: %SoloRevisados% + %TRADUCIDOS%
-
-[PRIORIDAD] #iMPLEMENTAR CONTADOR DE TURNO, MARCAR ENTRADA/SALIDA-MAÑANA-TARDE (almacenamiento diario)
-
-OK #Debugar funcion similar a lote+composição de lote [con target en SET&PACK] por algun motivo lockea en composicion al salvar. SOLUCIONADO
-
-#Implementar almacenamiento de backups e dumps exportadas, traducciones PT+IT, triggers de revision 0/1 no/si en ALL.
-
-# Implementar buscador/consultas Generales en la interfaz
-- Crear un buscador con criterio full scope para buscar por palabras clave en la base de datos.
 
 # Implementar lógica o función para la extracción de SKUs sin revisión en SGA ALL.xlsx
 - Extraer SKUs con valor cero "0" en revisión portuguesa e italiana (Etiqueta Portuguesa + Etiqueta Italiana, no en etiquetado) para separar y pedir almacén.
@@ -91,3 +45,37 @@ OK #Debugar funcion similar a lote+composição de lote [con target en SET&PACK]
 ## Implementar la capacidad de Consultar y mostrar traducciones hechas en la base de datos de traducciones (aun no existente) que se extraerá de dumps, exports y backups. (habria que definir un output del texto o resultado)
 
 ## Revisar conflicto, bloqueo de sesion conflictando con la funcion LOCK, si la interface es bloqueada con la funcion LOCK activada, no es posible escribir para desbloquear, solo cerrar la app. CORREGIR
+
+# RECOMENDACIONES ADICIONALES
+
+## Seguridad
+- Implementar autenticación de dos factores (2FA) para mejorar la seguridad de la aplicación.
+- Realizar auditorías de seguridad periódicas para identificar y corregir vulnerabilidades.
+
+## Usabilidad
+- Realizar pruebas de usabilidad con usuarios reales para identificar áreas de mejora en la interfaz.
+- Implementar tutoriales y documentación dentro de la aplicación para ayudar a los nuevos usuarios a familiarizarse con las funcionalidades.
+
+## Mantenimiento
+- Establecer un ciclo de mantenimiento regular para actualizar dependencias y corregir errores.
+- Implementar un sistema de seguimiento de errores y solicitudes de características para gestionar el desarrollo de la aplicación.
+
+## Escalabilidad
+- Diseñar la arquitectura de la aplicación para soportar un aumento en la cantidad de usuarios y datos.
+- Implementar balanceo de carga y escalado automático para manejar picos de tráfico.
+
+## Integraciones
+- Facilitar la integración con otras aplicaciones y servicios mediante APIs.
+- Implementar conectores para servicios populares como Google Drive, Dropbox, y servicios de correo electrónico.
+
+## Accesibilidad
+- Asegurarse de que la aplicación cumpla con las pautas de accesibilidad web (WCAG).
+- Implementar soporte para múltiples idiomas y localización.
+
+## Monitoreo y Alertas
+- Implementar herramientas de monitoreo para rastrear el rendimiento y la disponibilidad de la aplicación.
+- Configurar alertas para notificar al equipo de desarrollo sobre problemas críticos en tiempo real.
+
+## Mejora Continua
+- Fomentar una cultura de mejora continua mediante la retroalimentación constante de los usuarios.
+- Realizar revisiones periódicas del código y refactorizaciones para mantener la calidad del software.
