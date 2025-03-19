@@ -41,46 +41,53 @@ OFF #Implementar TOOL GUI DESIGNER, dentro de la app? como módulo? o como scrip
 
 OK #Debugar funcion similar a lote+composição de lote [con target en SET&PACK] por algun motivo lockea en composicion al salvar. SOLUCIONADO
 
-
-
-// Reformulación de la lista de tareas
-
-OK # Mejorar la funcionalidad del popup "Composición de Lote"
-- Bloquear el popup "Composición de Lote" igual que el de "Traducir". ok
-- Evitar que el popup desaparezca al hacer click fuera de su área. ok
-
-OK # Foco automático en el campo "EAN/SKU/ID"
-- Retornar inmediatamente el foco al campo "EAN/SKU/ID" al hacer click en REVISADO o TRADUCIDO.
-
-OK # Revisión de la modificación en la base de datos
-- Verificar la adición inesperada de la columna "estado" en la base de datos.
-- Asegurarse de que la lógica solo verifique la presencia del SKU en el archivo REV del día actual sin modificar la DB.
+#Implementar almacenamiento de backups e dumps exportadas, traducciones PT+IT, triggers de revision 0/1 no/si en ALL.
 
 # Implementar buscador/consultas Generales en la interfaz
 - Crear un buscador con criterio full scope para buscar por palabras clave en la base de datos.
 
-OK # Botones para revisiones manuales
-- Añadir botones para realizar revisiones manuales en REV y DB.
+# Implementar lógica o función para la extracción de SKUs sin revisión en SGA ALL.xlsx
+- Extraer SKUs con valor cero "0" en revisión portuguesa e italiana (Etiqueta Portuguesa + Etiqueta Italiana, no en etiquetado) para separar y pedir almacén.
 
-OFF # Sumarización y contabilización de revisiones diarias
-- Implementar lógica para sumarizar y contabilizar las revisiones diarias.
-- Diferenciar entre "Solo Revisión" y "Revisado y Traducido".
+# Implementar tools individuales, Excel-Combiner + Excel-Divider como tools de la app principal
+- Unificar todas las tools en una sola app.
+- Capacidad para la app manejar módulos, añadir mini apps, que funciones serían vitales para la revisión, traducción e internacionalización. (Buscar productos sin revisión en archivo maestro SGA ALL.xlsx)
 
-OK # Foco permanente en el campo "EAN/SKU/ID"
-- Mantener el foco en el campo "EAN/SKU/ID" siempre que esté vacío.
-- Liberar el foco cuando deje de estar vacío y fijarlo nuevamente si vuelve a estar vacío.
+# Contador Counter live fijado incremental
+- Revisados: %SoloRevisados%
+- Traducidos: %SoloRevisados% + %TRADUCIDOS%
 
-OK # Evitar duplicados en las revisiones del día actual
-- No permitir revisiones duplicadas si el SKU ya está presente en el archivo REV del día actual.
-- Solicitar confirmación para duplicar revisiones con opciones "SI" y "NO".
+[PRIORIDAD] # Implementar contador de turno
+- Marcar entrada/salida-mañana-tarde (almacenamiento diario)
 
-OK # Nuevos tipos de checkbox
-- Reordenar y Añadir nuevos tipos de checkbox (reordenando los ya existentes): "LOTE", (añadir) "Set & Pack" (misma logica y columna que LOTE, también dirige a "composición de lote" para indicar los EANs compuestos dentro, evita crear nueva funcion reutilizando la de "Composición de LOTE", aunque el tipo sea diferente), "Consumo", (añadir) "EDT & EDP", (añadir) "MakeUP", "Regalo ZZ (renombrar a ZZ)". Añadir una lista en combobox para elegir el tipo en una lista desplegable con barra de desplazamiento, donde los tipos que aparecen en esta lista se añaden en el código en un apartado (comentado y bien ubicado), donde se puede implementar nuevos tipos con facilidad y con pocos cambios. El formato de los checkbox deben seguir el formato actual, 3 checkbox luego abajo otros 3 bien alineados y responsivos, luego abajo la combobox va centrada arriba de "EAN/SKU/ID" con dos botones uno antes "EX1 (sin funcion implementada, reserva un espacio en el codigo para su futura implementación)" y otro despues del combobox "EX2 (sin funcion implementada, reserva un espacio en el codigo para su futura implementación)", en esa linea de espacio de la interface el combobox ocupa un 50% del espacio los botones que tiene antes y despues de la combobox son 25% uno y 25% el otro. No es necesário cambios en la DB, en caso de tener que cambiar algo en la estructura de la db no lo hagas sin avisarme. Avisame antes de cualquier cambio critico o de gran impacto.
+# Implementar almacenamiento de backups y dumps exportadas
+- Traducciones PT+IT, triggers de revisión 0/1 no/si en ALL.
 
-OFF # Integración con hardware de lector de códigos de barras (OFF)
-- Integrar el campo "EAN/SKU/ID" con el hardware lector de códigos de barras.
+# Recomendaciones para mejorar la aplicación
 
-OFF # Botón de atajo bidireccional (OFF)
-- Implementar un botón de atajo para comunicación bidireccional y cambio de ventanas con "CTRL+ALT+BREAK (PAUSE)".
+## Utilidades
+- Implementar un sistema de notificaciones para alertar sobre tareas pendientes o errores.
+- Añadir una funcionalidad de auto-guardado para evitar la pérdida de datos.
 
+## Rendimiento
+- Optimizar las consultas a la base de datos para mejorar la velocidad de respuesta.
+- Implementar caching para reducir la carga en la base de datos.
 
+## Funciones para implementar
+- Añadir una funcionalidad de exportación de datos a diferentes formatos (CSV, Excel, PDF).
+- Implementar un sistema de permisos y roles para gestionar el acceso a diferentes partes de la aplicación.
+
+## Tools útiles
+- Integrar herramientas de análisis de datos para generar reportes y estadísticas.
+- Añadir una herramienta de migración de datos para facilitar la actualización de la base de datos.
+
+## Formatos y temas coloridos
+- Implementar temas personalizables para la interfaz de usuario.
+- Añadir iconos y gráficos para mejorar la visualización de la información.
+- Utilizar un diseño responsivo para que la aplicación sea accesible desde diferentes dispositivos.
+
+## Implementar Modulo Wrapper, para partir textos lineales en la cantidad especificada (Campo Numerico define donde se ejecuta el wrap)
+
+## Implementar la capacidad de Consultar y mostrar traducciones hechas en la base de datos de traducciones (aun no existente) que se extraerá de dumps, exports y backups. (habria que definir un output del texto o resultado)
+
+## Revisar conflicto, bloqueo de sesion conflictando con la funcion LOCK, si la interface es bloqueada con la funcion LOCK activada, no es posible escribir para desbloquear, solo cerrar la app. CORREGIR
