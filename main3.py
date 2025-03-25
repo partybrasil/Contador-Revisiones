@@ -647,7 +647,7 @@ class ContadorApp(App):
         popup.open()
 
     def on_info_popup_dismiss(self, instance):
-        Window.unbind(on_key_down)
+        Window.unbind(on_key_down=self.on_key_down)
 
     def on_key_down(self, window, key, *args):
         if key in [27, 13]:  # Códigos de tecla ESC [27] y ENTER [13]
