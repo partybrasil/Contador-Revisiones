@@ -20,10 +20,57 @@ from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.clock import Clock
 from kivy.uix.dropdown import DropDown
 from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.filechooser import FileChooserIconView, FileChooserListView  # Importar para seleccionar archivos
+from kivy.uix.togglebutton import ToggleButton  # Importar ToggleButton para alternar vistas
+from kivy.uix.scrollview import ScrollView  # Importar ScrollView para la barra de desplazamiento
+import psutil
+import logging
+from datetime import datetime
+from colorama import Fore, Style
+
+# Configuración de monitoreo de recursos
+MONITOR_INTERVAL = 1  # Intervalo en segundos para monitorear recursos
+ENABLE_RESOURCE_MONITORING = True  # Activar o desactivar el monitoreo de recursos
+
+# Configuración de logging
+LOG_FILE = 'app_log.txt'  # Nombre del archivo de log
+ENABLE_LOGGING = True  # Activar o desactivar el logging
+LOG_LEVEL = logging.DEBUG  # Nivel de logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+# Inicializar logging
+if ENABLE_LOGGING:
+    logging.basicConfig(
+        filename=LOG_FILE,
+        level=LOG_LEVEL,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    # Encabezado diario
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    with open(LOG_FILE, 'r+') as log_file:
+        if current_date not in log_file.read():
+            logging.info(f"=== Inicio de registro para {current_date} ===")
+
+def monitor_resources(dt):
+    """Monitorea el uso de CPU y memoria del sistema."""
+    if ENABLE_RESOURCE_MONITORING:
+        cpu_usage = psutil.cpu_percent(interval=None)
+        memory_info = psutil.virtual_memory()
+        memory_usage = memory_info.percent
+
+        # Imprimir en consola con colores
+        print(Fore.YELLOW + f"[MONITOR] CPU: {cpu_usage}% | Memoria: {memory_usage}%" + Style.RESET_ALL)
+
+        # Registrar en el archivo de log
+        if ENABLE_LOGGING:
+            logging.debug(f"Uso de CPU: {cpu_usage}% | Uso de Memoria: {memory_usage}%")
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
 Window.size = (550, 450)  # Tamaño inicial de la ventana
+
+# Variable para activar/desactivar el control de usuario/contraseña
+ENABLE_LOGIN = False
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -92,7 +139,7 @@ class LoginScreen(Screen):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (DESARROLLOv2)'
+        self.title = 'Contador de Revisiones (DESARROLLOv3)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
@@ -102,6 +149,15 @@ class ContadorApp(App):
         self.screen_manager.add_widget(self.login_screen)
         self.screen_manager.add_widget(self.main_screen)
 
+        # Saltar la pantalla de login si ENABLE_LOGIN está desactivado
+        if not ENABLE_LOGIN:
+            self.screen_manager.current = 'main'
+
+        if ENABLE_RESOURCE_MONITORING:
+            Clock.schedule_interval(monitor_resources, MONITOR_INTERVAL)
+
+        if ENABLE_LOGGING:
+            logging.info("Aplicación iniciada.")
         return self.screen_manager
 
     def build_main_interface(self):
@@ -117,8 +173,9 @@ class ContadorApp(App):
         self.reset_btn = Button(text='RESET!!!', size_hint=(1, 1))
         self.reset_btn.bind(on_press=self.on_reset)
         self.reset_btn.bind(on_release=self.on_reset_release)
-        self.reg_db_btn = Button(text='Reg DB', size_hint=(1, 1))
-        self.reg_db_btn.bind(on_press=self.show_add_to_db_popup)
+        self.reg_db_btn = Button(text='+DB / MASS+', size_hint=(1, 1))  # Texto actualizado
+        self.reg_db_btn.bind(on_release=self.on_reg_db_release)
+        self.reg_db_btn.bind(on_press=self.on_reg_db_press)
         top_button_layout.add_widget(self.historial_btn)
         top_button_layout.add_widget(self.reset_btn)
         top_button_layout.add_widget(self.reg_db_btn)
@@ -291,7 +348,10 @@ class ContadorApp(App):
         self.conn.commit()
 
     def on_window_resize(self, instance, width, height):
-        self.status_bar.text = f'Estado: Ventana redimensionada a {width}x{height}'
+        message = f'Estado: Ventana redimensionada a {width}x{height}'
+        self.status_bar.text = message
+        if ENABLE_LOGGING:
+            logging.info(message)
 
     def focus_next(self, instance):
         next_widget = instance.get_focus_next()
@@ -300,13 +360,19 @@ class ContadorApp(App):
 
     def on_slider_value_change(self, instance, value):
         self.slider_value.text = str(int(value))
-        self.status_bar.text = f'Estado: Slider movido a {int(value)}'
+        message = f'Estado: Slider movido a {int(value)}'
+        self.status_bar.text = message
+        if ENABLE_LOGGING:
+            logging.info(message)
 
     def on_text_value_change(self, instance):
         value = self.slider_value.text
         if value.isdigit() and 0 <= int(value) <= 1000:
             self.slider.value = int(value)
-            self.status_bar.text = f'Estado: Valor del campo numérico cambiado a {value}'
+            message = f'Estado: Valor del campo numérico cambiado a {value}'
+            self.status_bar.text = message
+            if ENABLE_LOGGING:
+                logging.info(message)
         else:
             self.slider_value.text = str(int(self.slider.value))
 
@@ -367,6 +433,8 @@ class ContadorApp(App):
         Window.bind(on_key_down=self.on_key_down)
         self.info_popup = popup
         popup.open()
+        if ENABLE_LOGGING:
+            logging.info(f"Popup de información: {title} - {message}")
 
     def on_info_popup_dismiss(self, instance):
         Window.unbind(on_key_down=self.on_key_down)
@@ -521,6 +589,8 @@ class ContadorApp(App):
                       content=content,
                       size_hint=(0.6, 0.4))
         popup.open()
+        if ENABLE_LOGGING:
+            logging.warning(f"Advertencia mostrada: {message}")
 
     def on_revisado(self, instance):
         if not self.ean_sku_id.text.strip():
@@ -532,6 +602,8 @@ class ContadorApp(App):
             self.status_bar.text = 'Estado: Producto revisado'
             self.reset_fields()  # Limpiar campos después de revisar
             self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
+        if ENABLE_LOGGING:
+            logging.info("Producto marcado como revisado.")
 
     def on_traducir(self, instance):
         self.traducir_popup = Popup(title='Traducciones',
@@ -616,6 +688,8 @@ class ContadorApp(App):
             self.status_bar.text = 'Estado: Producto traducido'
             self.reset_fields()  # Limpiar campos después de traducir
             self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
+        if ENABLE_LOGGING:
+            logging.info("Producto marcado como traducido.")
 
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
@@ -651,6 +725,8 @@ class ContadorApp(App):
         wb.save(archivo)
         
         self.reset_fields()  # Limpiar campos después de registrar la revisión
+        if ENABLE_LOGGING:
+            logging.info(f"Revisión registrada: {estado} para SKU {self.ean_sku_id.text}")
 
     def reset_fields(self):
         self.ean_sku_id.text = ''
@@ -689,6 +765,8 @@ class ContadorApp(App):
         # Inicializar campos de entrada de traducción si no existen
         if hasattr(self, 'descripcion_input_pt'):
             self.load_traduccion_data()  # Limpiar los campos de traducción
+        if ENABLE_LOGGING:
+            logging.info("Campos de la interfaz reseteados.")
 
     def focus_ean_sku_id(self, dt):
         self.ean_sku_id.focus = True
@@ -696,7 +774,10 @@ class ContadorApp(App):
     def on_status_bar_double_click(self, instance, touch):
         if touch.is_double_tap:
             Window.size = (550, 450)
-            self.status_bar.text = 'Estado: Ventana restablecida a tamaño inicial'
+            message = 'Estado: Ventana restablecida a tamaño inicial'
+            self.status_bar.text = message
+            if ENABLE_LOGGING:
+                logging.info(message)
 
     def on_historial(self, instance):
         self.historial_popup = Popup(title='Historial de Revisiones',
@@ -741,18 +822,30 @@ class ContadorApp(App):
 
     def on_reset(self, instance):
         self.reset_start_time = datetime.now()
-        self.status_bar.text = 'Estado: Mantenga presionado para resetear...'
+        message = 'Estado: Mantenga presionado para resetear...'
+        self.status_bar.text = message
+        if ENABLE_LOGGING:
+            logging.info(message)
         Clock.schedule_once(self.reset_ready, 3)
 
     def reset_ready(self, dt):
-        self.status_bar.text = 'Estado: RESET Finalizado!!'
+        message = 'Estado: RESET Finalizado!!'
+        self.status_bar.text = message
+        if ENABLE_LOGGING:
+            logging.info(message)
 
     def on_reset_release(self, instance):
         if (datetime.now() - self.reset_start_time).total_seconds() >= 3:
             self.reset_fields()
-            self.status_bar.text = 'Estado: Interfaz reseteada'
+            message = 'Estado: Interfaz reseteada'
+            self.status_bar.text = message
+            if ENABLE_LOGGING:
+                logging.info(message)
         else:
-            self.status_bar.text = 'Estado: Reset cancelado'
+            message = 'Estado: Reset cancelado'
+            self.status_bar.text = message
+            if ENABLE_LOGGING:
+                logging.info(message)
 
     def toggle_lock_mode(self, instance):
         self.lock_mode = not self.lock_mode
@@ -901,13 +994,206 @@ class ContadorApp(App):
             self.precauciones_it = self.saved_state['precauciones_it']
             self.mas_informaciones_it = self.saved_state['mas_informaciones_it']
 
+    def on_reg_db_press(self, instance):
+        self.reg_db_start_time = datetime.now()
+        Clock.schedule_once(self.reg_db_ready, 3)
+
+    def reg_db_ready(self, dt):
+        self.status_bar.text = 'Estado: Listo para Importación Masiva'
+
+    def on_reg_db_release(self, instance):
+        if (datetime.now() - self.reg_db_start_time).total_seconds() >= 3:
+            self.importacion_revs_masiva()
+        else:
+            self.show_add_to_db_popup()
+
+    def importacion_revs_masiva(self):
+        self.file_chooser = FileChooserIconView(filters=['*.xlsx'])
+        self.file_chooser_layout = BoxLayout(orientation='vertical', spacing=10, padding=10)
+
+        # Campo de texto para filtrar archivos
+        self.file_filter_input = TextInput(hint_text='Filtrar archivos...', multiline=False, size_hint=(1, 0.1))
+        self.file_filter_input.bind(text=self.filter_files)
+
+        # Botón para alternar entre vista de iconos y lista
+        self.toggle_view_button = ToggleButton(text='Vista: Iconos', size_hint=(1, 0.1))
+        self.toggle_view_button.bind(on_press=self.toggle_file_chooser_view)
+
+        # ScrollView para la barra de desplazamiento
+        self.file_scroll_view = ScrollView(size_hint=(1, 0.8))
+        self.file_scroll_view.add_widget(self.file_chooser)
+
+        self.file_chooser_layout.add_widget(self.file_filter_input)
+        self.file_chooser_layout.add_widget(self.toggle_view_button)
+        self.file_chooser_layout.add_widget(self.file_scroll_view)
+
+        self.file_chooser_popup = Popup(title='Seleccionar archivo .xlsx',
+                                        content=self.file_chooser_layout,
+                                        size_hint=(0.8, 0.8))
+        self.file_chooser.bind(on_submit=self.on_file_selected)
+        self.file_chooser_popup.open()
+
+    def filter_files(self, instance, text):
+        self.file_chooser.filters = [f'*{text}*'] if text else ['*.xlsx']
+
+    def toggle_file_chooser_view(self, instance):
+        # Guardar la ubicación actual antes de cambiar el modo
+        current_path = self.file_chooser.path
+
+        # Cambiar entre FileChooserIconView y FileChooserListView
+        if isinstance(self.file_chooser, FileChooserIconView):
+            self.file_scroll_view.remove_widget(self.file_chooser)
+            self.file_chooser = FileChooserListView(filters=['*.xlsx'])
+        else:
+            self.file_scroll_view.remove_widget(self.file_chooser)
+            self.file_chooser = FileChooserIconView(filters=['*.xlsx'])
+
+        # Restaurar la ubicación actual
+        self.file_chooser.path = current_path
+        self.file_chooser.bind(on_submit=self.on_file_selected)
+        self.file_scroll_view.add_widget(self.file_chooser)
+
+        # Actualizar el texto del botón
+        self.toggle_view_button.text = 'Vista: Iconos' if isinstance(self.file_chooser, FileChooserListView) else 'Vista: Lista'
+
+    def on_file_selected(self, instance, selection, *args):
+        if selection:
+            self.file_chooser_popup.dismiss()
+            self.show_import_confirmation(selection[0])
+
+    def show_import_confirmation(self, file_path):
+        self.import_file_path = file_path
+        try:
+            # Leer el archivo para obtener un resumen
+            wb = load_workbook(file_path)
+            ws = wb.active
+            rows = list(ws.iter_rows(min_row=2, values_only=True))
+            total_rows = len(rows)
+            estimated_time = f"{total_rows * 0.1:.1f} segundos"  # ETA estimado (0.1s por producto)
+
+            # Resumen de características seleccionadas
+            tipo = self.selected_tipo if hasattr(self, 'selected_tipo') else 'ZZ' if self.check_zz.active else 'LOTE' if self.check_lote.active else 'Set & Pack' if self.check_set_pack.active else 'Consumo' if self.check_consumo.active else 'EDT & EDP' if self.check_edt_edp.active else 'MakeUP' if self.check_makeup.active else ''
+            tiene_pt = 'Tiene PT' if self.check_pt.active else 'No Tiene PT - TRADUZIDO'
+            tiene_es = 'Tiene ES' if self.check_es.active else 'No Tiene ES - TRADUCIDO'
+            tiene_it = 'Tiene IT' if self.check_it.active else 'No Tiene IT - TRADOTTO'
+            cantidad_neta = self.slider_value.text
+            unidad = 'UND' if self.check_und.active else 'ML' if self.check_ml.active else 'GR' if self.check_gr.active else ''
+
+            # Crear el contenido del popup
+            content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+            content.add_widget(Label(text=f'Se importarán {total_rows} productos del archivo:\n{file_path}'))
+            content.add_widget(Label(text=f'ETA estimado: {estimated_time}'))
+            content.add_widget(Label(text=f'Características seleccionadas:\nTipo: {tipo}\nPT: {tiene_pt}\nES: {tiene_es}\nIT: {tiene_it}\nCantidad Neta: {cantidad_neta} {unidad}'))
+
+            # Checkboxes para establecer el estado
+            self.solo_revision_checkbox = CheckBox(size_hint=(None, None), size=(48, 48))
+            self.revisado_traducido_checkbox = CheckBox(size_hint=(None, None), size=(48, 48))
+            self.solo_revision_checkbox.bind(active=lambda instance, value: self.revisado_traducido_checkbox.active == False if value else None)
+            self.revisado_traducido_checkbox.bind(active=lambda instance, value: self.solo_revision_checkbox.active == False if value else None)
+
+            checkbox_layout = BoxLayout(size_hint=(1, 0.2))
+            checkbox_layout.add_widget(Label(text='Solo Revisión'))
+            checkbox_layout.add_widget(self.solo_revision_checkbox)
+            checkbox_layout.add_widget(Label(text='Revisado y Traducido'))
+            checkbox_layout.add_widget(self.revisado_traducido_checkbox)
+            content.add_widget(checkbox_layout)
+
+            # Botones de confirmación y cancelación
+            button_layout = BoxLayout(size_hint=(1, 0.2))
+            confirm_button = Button(text='Confirmar')
+            confirm_button.bind(on_press=self.start_mass_import)
+            cancel_button = Button(text='Cancelar')
+            cancel_button.bind(on_press=lambda x: self.import_confirmation_popup.dismiss())
+            button_layout.add_widget(confirm_button)
+            button_layout.add_widget(cancel_button)
+            content.add_widget(button_layout)
+
+            self.import_confirmation_popup = Popup(title='Confirmación de Importación',
+                                                    content=content,
+                                                    size_hint=(0.8, 0.8))
+            self.import_confirmation_popup.open()
+        except Exception as e:
+            self.show_warning_popup(f'Error al leer el archivo: {str(e)}')
+
+    def start_mass_import(self, instance):
+        self.import_confirmation_popup.dismiss()
+        self.show_progress_overlay()
+        Clock.schedule_once(lambda dt: self.perform_mass_import(), 0.1)
+
+    def show_progress_overlay(self):
+        self.progress_overlay = Popup(title='Importando...',
+                                       content=ProgressBar(max=100),
+                                       size_hint=(0.6, 0.2),
+                                       auto_dismiss=False)
+        self.progress_overlay.content.value = 0
+        self.progress_overlay.open()
+
+    def perform_mass_import(self):
+        from openpyxl import load_workbook
+
+        try:
+            wb = load_workbook(self.import_file_path)
+            ws = wb.active
+            rows = list(ws.iter_rows(min_row=2, values_only=True))
+            total_rows = len(rows)
+            fecha = datetime.now().strftime('%d-%m-%Y')
+            archivo = f'REVs/REV-{fecha}.xlsx'
+
+            if not os.path.exists('REVs'):
+                os.makedirs('REVs')
+
+            if os.path.exists(archivo):
+                rev_wb = load_workbook(archivo)
+                rev_ws = rev_wb.active
+            else:
+                rev_wb = Workbook()
+                rev_ws = rev_wb.active
+                rev_ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado'])
+
+            imported_count = 0
+            estado = 'Solo Revisión' if self.solo_revision_checkbox.active else 'Revisado y Traducido'
+
+            for i, row in enumerate(rows):
+                try:
+                    sku, titulo, eans = row
+                    tipo = self.selected_tipo if hasattr(self, 'selected_tipo') else 'ZZ' if self.check_zz.active else 'LOTE' if self.check_lote.active else 'Set & Pack' if self.check_set_pack.active else 'Consumo' if self.check_consumo.active else 'EDT & EDP' if self.check_edt_edp.active else 'MakeUP' if self.check_makeup.active else ''
+                    tiene_pt = 'Tiene PT' if self.check_pt.active else 'No Tiene PT - TRADUZIDO'
+                    tiene_es = 'Tiene ES' if self.check_es.active else 'No Tiene ES - TRADUCIDO'
+                    tiene_it = 'Tiene IT' if self.check_it.active else 'No Tiene IT - TRADOTTO'
+                    cantidad_neta = self.slider_value.text
+                    unidad = 'UND' if self.check_und.active else 'ML' if self.check_ml.active else 'GR' if self.check_gr.active else ''
+                    composicion_lote = self.lote_composition if self.check_lote.active or self.check_set_pack.active else ''
+
+                    rev_ws.append([sku, titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado])
+                    imported_count += 1
+                    self.progress_overlay.content.value = int((i + 1) / total_rows * 100)
+                    self.root.do_layout()
+                except Exception as e:
+                    self.show_warning_popup(f'Error al importar el producto en la fila {i + 2}: {str(e)}')
+
+            rev_wb.save(archivo)
+            self.progress_overlay.dismiss()
+            self.status_bar.text = f'Importación Masiva Completada: {imported_count} productos'
+            if ENABLE_LOGGING:
+                logging.info(f"Importación masiva completada: {imported_count} productos.")
+        except Exception as e:
+            self.progress_overlay.dismiss()
+            self.show_warning_popup(f'Error durante la importación: {str(e)}')
+            if ENABLE_LOGGING:
+                logging.error(f"Error durante la importación masiva: {str(e)}")
+
 if __name__ == '__main__':
     try:
         ContadorApp().run()
     except KeyboardInterrupt:
-        print("Aplicación cerrada por el usuario.")
+        message = "Aplicación cerrada por el usuario."
+        print(Fore.RED + message + Style.RESET_ALL)
+        if ENABLE_LOGGING:
+            logging.info(message)
     except Exception as e:
         import traceback
-        print("Ocurrió un error inesperado:")
+        message = "Ocurrió un error inesperado:"
+        print(Fore.RED + message + Style.RESET_ALL)
         traceback.print_exc()
-        input("Presione Enter para cerrar...")
+        if ENABLE_LOGGING:
+            logging.critical(f"{message} {str(e)}")
