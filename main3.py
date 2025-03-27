@@ -10,7 +10,7 @@ from kivy.uix.progressbar import ProgressBar
 from kivy.uix.popup import Popup
 from kivy.core.window import Window
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 from openpyxl import load_workbook, Workbook
 from kivy.uix.switch import Switch
@@ -20,13 +20,8 @@ from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.clock import Clock
 from kivy.uix.dropdown import DropDown
 from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.spinner import Spinner
-import time
-import pytz  # Para manejo de zonas horarias
-
-# Configuración de la zona horaria
-TIMEZONE = pytz.timezone('Europe/Madrid')  # Ejemplo: Madrid, España
+from kivy.uix.filechooser import FileChooserIconView, FileChooserListView  # Importar para seleccionar archivos
+from kivy.uix.togglebutton import ToggleButton  # Importar ToggleButton para alternar vistas
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
@@ -97,214 +92,19 @@ class LoginScreen(Screen):
         self.username_input.text = ''
         self.password_input.text = ''
 
-class ContadorTurnoScreen(Screen):
-    def __init__(self, **kwargs):
-        super(ContadorTurnoScreen, self).__init__(**kwargs)
-        self.layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
-        self.add_widget(self.layout)
-
-        self.turno_data = {  # Mover esta línea antes de llamar a update_horarios_table
-            'Mañana': {'entrada': None, 'salida': None, 'total': 0, 'contador': None},
-            'Tarde': {'entrada': None, 'salida': None, 'total': 0, 'contador': None}
-        }
-
-        # Campo de fecha y hora actual
-        self.datetime_label = Label(text='', size_hint=(1, 0.1))
-        self.layout.add_widget(self.datetime_label)
-        Clock.schedule_interval(self.update_datetime, 1)
-
-        # Campo de total de turno
-        self.total_turno_label = Label(text='Total Turno: 00:00:00', size_hint=(1, 0.1))
-        self.layout.add_widget(self.total_turno_label)
-
-        # Botones y campos de validación
-        self.turno_layout = GridLayout(cols=3, size_hint=(1, 0.6))
-        self.layout.add_widget(self.turno_layout)
-
-        self.create_turno_controls('Mañana')
-        self.create_turno_controls('Tarde')
-
-        # Botón de validación manual
-        self.validar_button = Button(text='VALIDAR', size_hint=(1, 0.1))
-        self.validar_button.bind(on_press=self.validar_manual)
-        self.layout.add_widget(self.validar_button)
-
-        # Tabla de horarios
-        self.horarios_table = GridLayout(cols=4, size_hint=(1, 0.2))
-        self.layout.add_widget(self.horarios_table)
-        self.update_horarios_table()
-
-        # Barra de estado
-        self.status_bar = Label(text='Estado: Esperando...', size_hint=(1, 0.1), color=(1, 1, 1, 1))
-        self.status_bar.bind(on_touch_down=self.on_status_bar_double_click)
-        self.layout.add_widget(self.status_bar)
-
-    def create_turno_controls(self, turno):
-        self.turno_layout.add_widget(Label(text=f'{turno} Entrada', size_hint=(1, 0.1)))
-        self.turno_layout.add_widget(Label(text=f'{turno} Salida', size_hint=(1, 0.1)))
-
-        entrada_button = Button(text=f'Entrada-{turno}', size_hint=(1, 0.1))
-        entrada_button.bind(on_press=lambda x: self.validar_entrada(turno))
-        self.turno_layout.add_widget(entrada_button)
-
-        salida_button = Button(text=f'Salida-{turno}', size_hint=(1, 0.1))
-        salida_button.bind(on_press=lambda x: self.validar_salida(turno))
-        self.turno_layout.add_widget(salida_button)
-
-        entrada_manual = TextInput(hint_text='HH:MM', multiline=False, size_hint=(1, 0.1))
-        entrada_manual.bind(on_text_validate=lambda x: self.validar_manual(turno, 'entrada', entrada_manual.text))
-        self.turno_layout.add_widget(entrada_manual)
-
-        salida_manual = TextInput(hint_text='HH:MM', multiline=False, size_hint=(1, 0.1))
-        salida_manual.bind(on_text_validate=lambda x: self.validar_manual(turno, 'salida', salida_manual.text))
-        self.turno_layout.add_widget(salida_manual)
-
-    def update_datetime(self, dt):
-        now = datetime.now(TIMEZONE)
-        self.datetime_label.text = now.strftime('%d/%m/%Y - %H:%M:%S')
-
-    def validar_entrada(self, turno):
-        now = datetime.now(TIMEZONE)
-        if self.turno_data[turno]['entrada'] is not None and self.turno_data[turno]['salida'] is None:
-            self.show_error_popup(f'Ya hay una entrada registrada para el turno {turno} sin salida.')
-            return
-        self.turno_data[turno]['entrada'] = now
-        self.turno_data[turno]['contador'] = Clock.schedule_interval(lambda dt: self.update_total_turno(turno), 1)
-        self.update_horarios_table()
-        self.update_total_turno(turno)
-        self.exportar_turnos()
-
-    def validar_salida(self, turno):
-        now = datetime.now(TIMEZONE)
-        if self.turno_data[turno]['entrada'] is None:
-            self.show_error_popup(f'No hay entrada registrada para el turno {turno}.')
-            return
-        self.turno_data[turno]['salida'] = now
-        if self.turno_data[turno]['contador']:
-            Clock.unschedule(self.turno_data[turno]['contador'])
-            self.turno_data[turno]['contador'] = None
-        self.update_horarios_table()
-        self.update_total_turno(turno)
-        self.exportar_turnos()
-
-    def validar_manual(self, turno=None, tipo=None, value=None):
-        if turno and tipo and value:
-            try:
-                hora, minuto = map(int, value.split(':'))
-                now = datetime.now(TIMEZONE).replace(hour=hora, minute=minuto, second=0, microsecond=0)
-                if tipo == 'entrada':
-                    self.turno_data[turno]['entrada'] = now
-                elif tipo == 'salida':
-                    self.turno_data[turno]['salida'] = now
-                self.update_horarios_table()
-                self.update_total_turno()
-            except ValueError:
-                self.show_error_popup('Formato de hora inválido. Use HH:MM.')
-        else:
-            # Validar todos los campos manuales
-            for turno in ['Mañana', 'Tarde']:
-                entrada_manual = self.turno_layout.children[turno == 'Tarde' and 3 or 7]
-                salida_manual = self.turno_layout.children[turno == 'Tarde' and 2 or 6]
-                if entrada_manual.text:
-                    self.validar_manual(turno, 'entrada', entrada_manual.text)
-                if salida_manual.text:
-                    self.validar_manual(turno, 'salida', salida_manual.text)
-
-    def update_horarios_table(self):
-        self.horarios_table.clear_widgets()
-        self.horarios_table.add_widget(Label(text='Turno'))
-        self.horarios_table.add_widget(Label(text='Entrada'))
-        self.horarios_table.add_widget(Label(text='Salida'))
-        self.horarios_table.add_widget(Label(text='Total'))
-        for turno, data in self.turno_data.items():
-            self.horarios_table.add_widget(Label(text=turno))
-            self.horarios_table.add_widget(Label(text=data['entrada'].strftime('%H:%M:%S') if data['entrada'] else ''))
-            self.horarios_table.add_widget(Label(text=data['salida'].strftime('%H:%M:%S') if data['salida'] else ''))
-            total_str = str(timedelta(seconds=data['total'])).split('.')[0]  # Eliminar microsegundos
-            self.horarios_table.add_widget(Label(text=total_str))
-
-    def update_total_turno(self, turno=None):
-        if turno:
-            entrada = self.turno_data[turno]['entrada']
-            salida = self.turno_data[turno]['salida'] or datetime.now(TIMEZONE)
-            total = (salida - entrada).total_seconds()
-            self.turno_data[turno]['total'] = total
-        total_mañana = self.turno_data['Mañana']['total']
-        total_tarde = self.turno_data['Tarde']['total']
-        total_mañana_str = str(timedelta(seconds=total_mañana)).split('.')[0]  # Eliminar microsegundos
-        total_tarde_str = str(timedelta(seconds=total_tarde)).split('.')[0]  # Eliminar microsegundos
-        self.total_turno_label.text = f'Total Turno: Mañana: {total_mañana_str} Tarde: {total_tarde_str}'
-
-    def exportar_turnos(self):
-        fecha = datetime.now().strftime('%d-%m-%Y')
-        archivo = f'TURNOS/TURNO-{fecha}.xlsx'
-        
-        if not os.path.exists('TURNOS'):
-            os.makedirs('TURNOS')
-        
-        if os.path.exists(archivo):
-            wb = load_workbook(archivo)
-            ws = wb.active
-        else:
-            wb = Workbook()
-            ws = wb.active
-            ws.append(['Turno', 'Entrada', 'Salida', 'Total'])
-        
-        ws.append(['Mañana', 
-                   self.turno_data['Mañana']['entrada'].strftime('%H:%M:%S') if self.turno_data['Mañana']['entrada'] else '', 
-                   self.turno_data['Mañana']['salida'].strftime('%H:%M:%S') if self.turno_data['Mañana']['salida'] else '', 
-                   str(timedelta(seconds=self.turno_data['Mañana']['total'])).split('.')[0]])
-        
-        ws.append(['Tarde', 
-                   self.turno_data['Tarde']['entrada'].strftime('%H:%M:%S') if self.turno_data['Tarde']['entrada'] else '', 
-                   self.turno_data['Tarde']['salida'].strftime('%H:%M:%S') if self.turno_data['Tarde']['salida'] else '', 
-                   str(timedelta(seconds=self.turno_data['Tarde']['total'])).split('.')[0]])
-        
-        wb.save(archivo)
-
-    def show_error_popup(self, message):
-        content = BoxLayout(orientation='vertical', padding=10)
-        content.add_widget(Label(text=message, text_size=(280, None), halign='center'))
-        popup = Popup(title='Error',
-                      content=content,
-                      size_hint=(0.6, 0.4))
-        popup.open()
-
-    def on_status_bar_double_click(self, instance, touch):
-        if touch.is_double_tap:
-            Window.size = (550, 450)
-            self.status_bar.text = 'Estado: Ventana restablecida a tamaño inicial'
-
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (DESARROLLOv2)'
+        self.title = 'Contador de Revisiones (OFFICIALv2)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
         self.main_screen = Screen(name='main')
         self.main_screen.add_widget(self.build_main_interface())
 
-        # Crear layouts adicionales
-        self.layout2 = ContadorTurnoScreen(name='layout2')
-        self.layout3 = Screen(name='layout3')
-        self.layout3.add_widget(self.build_empty_interface())
-        self.layout4 = Screen(name='layout4')
-        self.layout4.add_widget(self.build_empty_interface())
-
         self.screen_manager.add_widget(self.login_screen)
         self.screen_manager.add_widget(self.main_screen)
-        self.screen_manager.add_widget(self.layout2)
-        self.screen_manager.add_widget(self.layout3)
-        self.screen_manager.add_widget(self.layout4)
 
         return self.screen_manager
-
-    def on_key_down(self, window, key, *args):
-        if key in [27, 13]:  # Códigos de tecla ESC [27] y ENTER [13]
-            if hasattr(self, 'info_popup') and self.info_popup:
-                self.info_popup.dismiss()
-                return True
-        return False
 
     def build_main_interface(self):
         self.root = BoxLayout(orientation='vertical', padding=10, spacing=10)
@@ -320,7 +120,8 @@ class ContadorApp(App):
         self.reset_btn.bind(on_press=self.on_reset)
         self.reset_btn.bind(on_release=self.on_reset_release)
         self.reg_db_btn = Button(text='Reg DB', size_hint=(1, 1))
-        self.reg_db_btn.bind(on_press=self.show_add_to_db_popup)
+        self.reg_db_btn.bind(on_release=self.on_reg_db_release)
+        self.reg_db_btn.bind(on_press=self.on_reg_db_press)
         top_button_layout.add_widget(self.historial_btn)
         top_button_layout.add_widget(self.reset_btn)
         top_button_layout.add_widget(self.reg_db_btn)
@@ -454,20 +255,10 @@ class ContadorApp(App):
         button_layout.add_widget(self.traducido_btn)
         self.root.add_widget(button_layout)
         
-        # Barra de estado y navegación
+        # Barra de estado
         self.status_bar = Label(text='Estado: Esperando...', size_hint=(1, 0.1), color=(1, 1, 1, 1))
         self.status_bar.bind(on_touch_down=self.on_status_bar_double_click)
-        
-        nav_layout = BoxLayout(size_hint=(1, 0.1))
-        nav_layout.add_widget(Widget(size_hint=(0.1, 1)))  # Espacio vacío para la esquina izquierda
-        nav_layout.add_widget(self.status_bar)
-        nav_layout.add_widget(Widget(size_hint=(0.1, 1)))  # Espacio vacío para la esquina derecha
-        
-        self.root.add_widget(nav_layout)
-        
-        # Bind para detectar doble clic en las esquinas
-        self.root.bind(on_touch_down=self.on_touch_down)
-        self.root.bind(on_touch_up=self.on_touch_up)
+        self.root.add_widget(self.status_bar)
         
         self.descripcion = ''
         self.modo_empleo = ''
@@ -489,72 +280,6 @@ class ContadorApp(App):
         
         Clock.schedule_interval(self.check_focus, 0.1)  # Verificar el foco cada 0.1 segundos
         return self.root
-
-    def build_empty_interface(self):
-        layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
-        # Barra de estado y navegación
-        nav_layout = BoxLayout(size_hint=(1, 0.1))
-        nav_layout.add_widget(Widget(size_hint=(0.1, 1)))  # Espacio vacío para la esquina izquierda
-        nav_layout.add_widget(Label(text='Estado: Esperando...', size_hint=(1, 1), color=(1, 1, 1, 1)))
-        nav_layout.add_widget(Widget(size_hint=(0.1, 1)))  # Espacio vacío para la esquina derecha
-        
-        layout.add_widget(Widget())  # Espacio vacío para el contenido futuro
-        layout.add_widget(nav_layout)
-        
-        # Bind para detectar doble clic en las esquinas
-        layout.bind(on_touch_down=self.on_touch_down)
-        layout.bind(on_touch_up=self.on_touch_up)
-        
-        return layout
-
-    def prev_layout(self, instance):
-        current_screen = self.screen_manager.current
-        if (current_screen == 'main'):
-            self.screen_manager.current = 'layout4'
-            self.title = 'Contador de Turno'
-        elif (current_screen == 'layout2'):
-            self.screen_manager.current = 'main'
-            self.title = 'Contador de Revisiones (DESARROLLOv2)'
-        elif (current_screen == 'layout3'):
-            self.screen_manager.current = 'layout2'
-            self.title = 'Contador de Turno'
-        elif (current_screen == 'layout4'):
-            self.screen_manager.current = 'layout3'
-            self.title = 'Contador de Turno'
-
-    def next_layout(self, instance):
-        current_screen = self.screen_manager.current
-        if (current_screen == 'main'):
-            self.screen_manager.current = 'layout2'
-            self.title = 'Contador de Turno'
-        elif (current_screen == 'layout2'):
-            self.screen_manager.current = 'layout3'
-            self.title = 'Contador de Turno'
-        elif (current_screen == 'layout3'):
-            self.screen_manager.current = 'layout4'
-            self.title = 'Contador de Turno'
-        elif (current_screen == 'layout4'):
-            self.screen_manager.current = 'main'
-            self.title = 'Contador de Revisiones (DESARROLLOv2)'
-
-    def on_touch_down(self, instance, touch):
-        if touch.is_double_tap:
-            if touch.x < Window.width * 0.1 and touch.y < Window.height * 0.1:
-                self.prev_layout(instance)
-            elif touch.x > Window.width * 0.9 and touch.y < Window.height * 0.1:
-                self.next_layout(instance)
-        self.touch_start = touch
-
-    def on_touch_up(self, instance, touch):
-        if self.touch_start:
-            dx = touch.x - self.touch_start.x
-            dy = touch.y - self.touch_start.y
-            if abs(dx) > abs(dy) and abs(dx) > 50:
-                if dx > 0:
-                    self.next_layout(instance)
-                else:
-                    self.prev_layout(instance)
-        self.touch_start = None
 
     def init_db(self):
         self.conn = sqlite3.connect('db.db')
@@ -907,15 +632,15 @@ class ContadorApp(App):
         composicion_lote = self.lote_composition if self.check_lote.active or self.check_set_pack.active else ''
         
         fecha = datetime.now().strftime('%d-%m-%Y')
-        archivo = f'output/turnos/REV-{fecha}.xlsx'
+        archivo = f'REVs/REV-{fecha}.xlsx'
         
         descripcion_col = f'Descripcion{self.traduccion_tipo}' if self.traduccion_tipo else ''
         modo_empleo_col = f'Modo de Empleo{self.traduccion_tipo}' if self.traduccion_tipo else ''
         precauciones_col = f'Precauciones{self.traduccion_tipo}' if self.traduccion_tipo else ''
         mas_informaciones_col = f'Más Informaciones{self.traduccion_tipo}' if self.traduccion_tipo else ''
         
-        if not os.path.exists('output/turnos'):
-            os.makedirs('output/turnos')
+        if not os.path.exists('REVs'):
+            os.makedirs('REVs')
         
         if os.path.exists(archivo):
             wb = load_workbook(archivo)
@@ -1178,6 +903,123 @@ class ContadorApp(App):
             self.modo_empleo_it = self.saved_state['modo_empleo_it']
             self.precauciones_it = self.saved_state['precauciones_it']
             self.mas_informaciones_it = self.saved_state['mas_informaciones_it']
+
+    def on_reg_db_press(self, instance):
+        self.reg_db_start_time = datetime.now()
+        Clock.schedule_once(self.reg_db_ready, 3)
+
+    def reg_db_ready(self, dt):
+        self.status_bar.text = 'Estado: Listo para Importación Masiva'
+
+    def on_reg_db_release(self, instance):
+        if (datetime.now() - self.reg_db_start_time).total_seconds() >= 3:
+            self.importacion_revs_masiva()
+        else:
+            self.show_add_to_db_popup()
+
+    def importacion_revs_masiva(self):
+        self.file_chooser = FileChooserIconView(filters=['*.xlsx'])
+        self.file_chooser_layout = BoxLayout(orientation='vertical', spacing=10, padding=10)
+        
+        # Botón para alternar entre vista de iconos y lista
+        self.toggle_view_button = ToggleButton(text='Vista: Iconos', size_hint=(1, 0.1))
+        self.toggle_view_button.bind(on_press=self.toggle_file_chooser_view)
+        
+        self.file_chooser_layout.add_widget(self.toggle_view_button)
+        self.file_chooser_layout.add_widget(self.file_chooser)
+        
+        self.file_chooser_popup = Popup(title='Seleccionar archivo .xlsx',
+                                        content=self.file_chooser_layout,
+                                        size_hint=(0.8, 0.8))
+        self.file_chooser.bind(on_submit=self.on_file_selected)
+        self.file_chooser_popup.open()
+
+    def toggle_file_chooser_view(self, instance):
+        if isinstance(self.file_chooser, FileChooserIconView):
+            self.file_chooser_layout.remove_widget(self.file_chooser)
+            self.file_chooser = FileChooserIconView(filters=['*.xlsx']) if self.toggle_view_button.state == 'normal' else FileChooserListView(filters=['*.xlsx'])
+            self.file_chooser.bind(on_submit=self.on_file_selected)
+            self.file_chooser_layout.add_widget(self.file_chooser, index=1)
+            self.toggle_view_button.text = 'Vista: Iconos' if self.toggle_view_button.state == 'normal' else 'Vista: Lista'
+
+    def on_file_selected(self, instance, selection, *args):
+        if selection:
+            self.file_chooser_popup.dismiss()
+            self.show_import_confirmation(selection[0])
+
+    def show_import_confirmation(self, file_path):
+        self.import_file_path = file_path
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        content.add_widget(Label(text=f'Se importarán los datos del archivo:\n{file_path}'))
+        button_layout = BoxLayout(size_hint=(1, 0.2))
+        confirm_button = Button(text='Confirmar')
+        confirm_button.bind(on_press=self.start_mass_import)
+        cancel_button = Button(text='Cancelar')
+        cancel_button.bind(on_press=lambda x: self.import_confirmation_popup.dismiss())
+        button_layout.add_widget(confirm_button)
+        button_layout.add_widget(cancel_button)
+        content.add_widget(button_layout)
+        self.import_confirmation_popup = Popup(title='Confirmación de Importación',
+                                                content=content,
+                                                size_hint=(0.8, 0.4))
+        self.import_confirmation_popup.open()
+
+    def start_mass_import(self, instance):
+        self.import_confirmation_popup.dismiss()
+        self.show_progress_overlay()
+        Clock.schedule_once(lambda dt: self.perform_mass_import(), 0.1)
+
+    def show_progress_overlay(self):
+        self.progress_overlay = Popup(title='Importando...',
+                                       content=ProgressBar(max=100),
+                                       size_hint=(0.6, 0.2),
+                                       auto_dismiss=False)
+        self.progress_overlay.content.value = 0
+        self.progress_overlay.open()
+
+    def perform_mass_import(self):
+        from openpyxl import load_workbook
+
+        try:
+            wb = load_workbook(self.import_file_path)
+            ws = wb.active
+            rows = list(ws.iter_rows(min_row=2, values_only=True))
+            total_rows = len(rows)
+            fecha = datetime.now().strftime('%d-%m-%Y')
+            archivo = f'REVs/REV-{fecha}.xlsx'
+
+            if not os.path.exists('REVs'):
+                os.makedirs('REVs')
+
+            if os.path.exists(archivo):
+                rev_wb = load_workbook(archivo)
+                rev_ws = rev_wb.active
+            else:
+                rev_wb = Workbook()
+                rev_ws = rev_wb.active
+                rev_ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado'])
+
+            for i, row in enumerate(rows):
+                sku, titulo, eans = row
+                tipo = self.selected_tipo if hasattr(self, 'selected_tipo') else 'ZZ' if self.check_zz.active else 'LOTE' if self.check_lote.active else 'Set & Pack' if self.check_set_pack.active else 'Consumo' if self.check_consumo.active else 'EDT & EDP' if self.check_edt_edp.active else 'MakeUP' if self.check_makeup.active else ''
+                tiene_pt = 'Tiene PT' if self.check_pt.active else 'No Tiene PT - TRADUZIDO'
+                tiene_es = 'Tiene ES' if self.check_es.active else 'No Tiene ES - TRADUCIDO'
+                tiene_it = 'Tiene IT' if self.check_it.active else 'No Tiene IT - TRADOTTO'
+                cantidad_neta = self.slider_value.text
+                unidad = 'UND' if self.check_und.active else 'ML' if self.check_ml.active else 'GR' if self.check_gr.active else ''
+                composicion_lote = self.lote_composition if self.check_lote.active or self.check_set_pack.active else ''
+                estado = 'Revisado y Traducido'
+
+                rev_ws.append([sku, titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado])
+                self.progress_overlay.content.value = int((i + 1) / total_rows * 100)
+                self.root.do_layout()
+
+            rev_wb.save(archivo)
+            self.progress_overlay.dismiss()
+            self.status_bar.text = 'Estado: Importación Masiva Completada'
+        except Exception as e:
+            self.progress_overlay.dismiss()
+            self.show_warning_popup(f'Error durante la importación: {str(e)}')
 
 if __name__ == '__main__':
     try:
