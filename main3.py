@@ -28,6 +28,9 @@ from kivy.uix.scrollview import ScrollView  # Importar ScrollView para la barra 
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
 Window.size = (550, 450)  # Tamaño inicial de la ventana
 
+# Variable para activar/desactivar el control de usuario/contraseña
+ENABLE_LOGIN = False
+
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
         super(CustomSwitch, self).__init__(**kwargs)
@@ -104,6 +107,10 @@ class ContadorApp(App):
 
         self.screen_manager.add_widget(self.login_screen)
         self.screen_manager.add_widget(self.main_screen)
+
+        # Saltar la pantalla de login si ENABLE_LOGIN está desactivado
+        if not ENABLE_LOGIN:
+            self.screen_manager.current = 'main'
 
         return self.screen_manager
 
