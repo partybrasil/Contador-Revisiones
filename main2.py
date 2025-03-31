@@ -23,47 +23,6 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.filechooser import FileChooserIconView, FileChooserListView  # Importar para seleccionar archivos
 from kivy.uix.togglebutton import ToggleButton  # Importar ToggleButton para alternar vistas
 from kivy.uix.scrollview import ScrollView  # Importar ScrollView para la barra de desplazamiento
-import psutil
-import logging
-from datetime import datetime
-from colorama import Fore, Style
-
-# Configuración de monitoreo de recursos
-MONITOR_INTERVAL = 1  # Intervalo en segundos para monitorear recursos
-ENABLE_RESOURCE_MONITORING = True  # Activar o desactivar el monitoreo de recursos
-
-# Configuración de logging
-LOG_FILE = 'app_log.txt'  # Nombre del archivo de log
-ENABLE_LOGGING = True  # Activar o desactivar el logging
-LOG_LEVEL = logging.DEBUG  # Nivel de logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
-# Inicializar logging
-if ENABLE_LOGGING:
-    logging.basicConfig(
-        filename=LOG_FILE,
-        level=LOG_LEVEL,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    # Encabezado diario
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    with open(LOG_FILE, 'r+') as log_file:
-        if current_date not in log_file.read():
-            logging.info(f"=== Inicio de registro para {current_date} ===")
-
-def monitor_resources(dt):
-    """Monitorea el uso de CPU y memoria del sistema."""
-    if ENABLE_RESOURCE_MONITORING:
-        cpu_usage = psutil.cpu_percent(interval=None)
-        memory_info = psutil.virtual_memory()
-        memory_usage = memory_info.percent
-
-        # Imprimir en consola con colores
-        print(Fore.YELLOW + f"[MONITOR] CPU: {cpu_usage}% | Memoria: {memory_usage}%" + Style.RESET_ALL)
-
-        # Registrar en el archivo de log
-        if ENABLE_LOGGING:
-            logging.debug(f"Uso de CPU: {cpu_usage}% | Uso de Memoria: {memory_usage}%")
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
@@ -139,7 +98,7 @@ class LoginScreen(Screen):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (DESARROLLOv3)'
+        self.title = 'Contador de Revisiones (OFFICIALv3)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
@@ -153,11 +112,6 @@ class ContadorApp(App):
         if not ENABLE_LOGIN:
             self.screen_manager.current = 'main'
 
-        if ENABLE_RESOURCE_MONITORING:
-            Clock.schedule_interval(monitor_resources, MONITOR_INTERVAL)
-
-        if ENABLE_LOGGING:
-            logging.info("Aplicación iniciada.")
         return self.screen_manager
 
     def build_main_interface(self):
@@ -348,10 +302,7 @@ class ContadorApp(App):
         self.conn.commit()
 
     def on_window_resize(self, instance, width, height):
-        message = f'Estado: Ventana redimensionada a {width}x{height}'
-        self.status_bar.text = message
-        if ENABLE_LOGGING:
-            logging.info(message)
+        self.status_bar.text = f'Estado: Ventana redimensionada a {width}x{height}'
 
     def focus_next(self, instance):
         next_widget = instance.get_focus_next()
@@ -360,19 +311,13 @@ class ContadorApp(App):
 
     def on_slider_value_change(self, instance, value):
         self.slider_value.text = str(int(value))
-        message = f'Estado: Slider movido a {int(value)}'
-        self.status_bar.text = message
-        if ENABLE_LOGGING:
-            logging.info(message)
+        self.status_bar.text = f'Estado: Slider movido a {int(value)}'
 
     def on_text_value_change(self, instance):
         value = self.slider_value.text
         if value.isdigit() and 0 <= int(value) <= 1000:
             self.slider.value = int(value)
-            message = f'Estado: Valor del campo numérico cambiado a {value}'
-            self.status_bar.text = message
-            if ENABLE_LOGGING:
-                logging.info(message)
+            self.status_bar.text = f'Estado: Valor del campo numérico cambiado a {value}'
         else:
             self.slider_value.text = str(int(self.slider.value))
 
@@ -433,8 +378,6 @@ class ContadorApp(App):
         Window.bind(on_key_down=self.on_key_down)
         self.info_popup = popup
         popup.open()
-        if ENABLE_LOGGING:
-            logging.info(f"Popup de información: {title} - {message}")
 
     def on_info_popup_dismiss(self, instance):
         Window.unbind(on_key_down=self.on_key_down)
@@ -589,8 +532,6 @@ class ContadorApp(App):
                       content=content,
                       size_hint=(0.6, 0.4))
         popup.open()
-        if ENABLE_LOGGING:
-            logging.warning(f"Advertencia mostrada: {message}")
 
     def on_revisado(self, instance):
         if not self.ean_sku_id.text.strip():
@@ -602,8 +543,6 @@ class ContadorApp(App):
             self.status_bar.text = 'Estado: Producto revisado'
             self.reset_fields()  # Limpiar campos después de revisar
             self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
-        if ENABLE_LOGGING:
-            logging.info("Producto marcado como revisado.")
 
     def on_traducir(self, instance):
         self.traducir_popup = Popup(title='Traducciones',
@@ -688,8 +627,6 @@ class ContadorApp(App):
             self.status_bar.text = 'Estado: Producto traducido'
             self.reset_fields()  # Limpiar campos después de traducir
             self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
-        if ENABLE_LOGGING:
-            logging.info("Producto marcado como traducido.")
 
     def registrar_revision(self, estado):
         ean_sku_id = self.ean_sku_id.text
@@ -725,8 +662,6 @@ class ContadorApp(App):
         wb.save(archivo)
         
         self.reset_fields()  # Limpiar campos después de registrar la revisión
-        if ENABLE_LOGGING:
-            logging.info(f"Revisión registrada: {estado} para SKU {self.ean_sku_id.text}")
 
     def reset_fields(self):
         self.ean_sku_id.text = ''
@@ -765,8 +700,6 @@ class ContadorApp(App):
         # Inicializar campos de entrada de traducción si no existen
         if hasattr(self, 'descripcion_input_pt'):
             self.load_traduccion_data()  # Limpiar los campos de traducción
-        if ENABLE_LOGGING:
-            logging.info("Campos de la interfaz reseteados.")
 
     def focus_ean_sku_id(self, dt):
         self.ean_sku_id.focus = True
@@ -774,10 +707,7 @@ class ContadorApp(App):
     def on_status_bar_double_click(self, instance, touch):
         if touch.is_double_tap:
             Window.size = (550, 450)
-            message = 'Estado: Ventana restablecida a tamaño inicial'
-            self.status_bar.text = message
-            if ENABLE_LOGGING:
-                logging.info(message)
+            self.status_bar.text = 'Estado: Ventana restablecida a tamaño inicial'
 
     def on_historial(self, instance):
         self.historial_popup = Popup(title='Historial de Revisiones',
@@ -822,30 +752,18 @@ class ContadorApp(App):
 
     def on_reset(self, instance):
         self.reset_start_time = datetime.now()
-        message = 'Estado: Mantenga presionado para resetear...'
-        self.status_bar.text = message
-        if ENABLE_LOGGING:
-            logging.info(message)
+        self.status_bar.text = 'Estado: Mantenga presionado para resetear...'
         Clock.schedule_once(self.reset_ready, 3)
 
     def reset_ready(self, dt):
-        message = 'Estado: RESET Finalizado!!'
-        self.status_bar.text = message
-        if ENABLE_LOGGING:
-            logging.info(message)
+        self.status_bar.text = 'Estado: RESET Finalizado!!'
 
     def on_reset_release(self, instance):
         if (datetime.now() - self.reset_start_time).total_seconds() >= 3:
             self.reset_fields()
-            message = 'Estado: Interfaz reseteada'
-            self.status_bar.text = message
-            if ENABLE_LOGGING:
-                logging.info(message)
+            self.status_bar.text = 'Estado: Interfaz reseteada'
         else:
-            message = 'Estado: Reset cancelado'
-            self.status_bar.text = message
-            if ENABLE_LOGGING:
-                logging.info(message)
+            self.status_bar.text = 'Estado: Reset cancelado'
 
     def toggle_lock_mode(self, instance):
         self.lock_mode = not self.lock_mode
@@ -1174,26 +1092,17 @@ class ContadorApp(App):
             rev_wb.save(archivo)
             self.progress_overlay.dismiss()
             self.status_bar.text = f'Importación Masiva Completada: {imported_count} productos'
-            if ENABLE_LOGGING:
-                logging.info(f"Importación masiva completada: {imported_count} productos.")
         except Exception as e:
             self.progress_overlay.dismiss()
             self.show_warning_popup(f'Error durante la importación: {str(e)}')
-            if ENABLE_LOGGING:
-                logging.error(f"Error durante la importación masiva: {str(e)}")
 
 if __name__ == '__main__':
     try:
         ContadorApp().run()
     except KeyboardInterrupt:
-        message = "Aplicación cerrada por el usuario."
-        print(Fore.RED + message + Style.RESET_ALL)
-        if ENABLE_LOGGING:
-            logging.info(message)
+        print("Aplicación cerrada por el usuario.")
     except Exception as e:
         import traceback
-        message = "Ocurrió un error inesperado:"
-        print(Fore.RED + message + Style.RESET_ALL)
+        print("Ocurrió un error inesperado:")
         traceback.print_exc()
-        if ENABLE_LOGGING:
-            logging.critical(f"{message} {str(e)}")
+        input("Presione Enter para cerrar...")
