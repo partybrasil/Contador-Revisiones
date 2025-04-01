@@ -86,3 +86,4 @@ Añade un nuevo layout llamado "Wrapper", que irá al lado derecho del main, hac
 
 Modulo nuevo= "Wrapper"?
 Modulo nuevo= Generador de Report [REVs mensual Calculo sobre directorio de REVs]
+Modulo nuevo= Caracteristicas de REVs, check para productos que se han modificado en ficha e indicacion de MOD hecho. [Control de Cambios]
