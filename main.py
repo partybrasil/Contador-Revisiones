@@ -98,7 +98,7 @@ class LoginScreen(Screen):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (OFFICIALv3)'
+        self.title = 'Contador de Revisiones (OFFICIAL)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
@@ -999,31 +999,19 @@ class ContadorApp(App):
 
             # Crear el contenido del popup
             content = BoxLayout(orientation='vertical', padding=10, spacing=10)
-            content.add_widget(Label(text=f'Se importarán {total_rows} productos del archivo:\n{file_path}'))
-            content.add_widget(Label(text=f'ETA estimado: {estimated_time}'))
-            content.add_widget(Label(text=f'Características seleccionadas:\nTipo: {tipo}\nPT: {tiene_pt}\nES: {tiene_es}\nIT: {tiene_it}\nCantidad Neta: {cantidad_neta} {unidad}'))
+            content.add_widget(Label(text=f'Se importarán {total_rows} productos del archivo:\n{file_path}', size_hint=(1, 0.2)))
+            content.add_widget(Label(text=f'ETA estimado: {estimated_time}', size_hint=(1, 0.2)))
+            content.add_widget(Label(text=f'Características seleccionadas:\nTipo: {tipo}\nPT: {tiene_pt}\nES: {tiene_es}\nIT: {tiene_it}\nCantidad Neta: {cantidad_neta} {unidad}', size_hint=(1, 0.4)))
 
-            # Checkboxes para establecer el estado
-            self.solo_revision_checkbox = CheckBox(size_hint=(None, None), size=(48, 48))
-            self.revisado_traducido_checkbox = CheckBox(size_hint=(None, None), size=(48, 48))
-            self.solo_revision_checkbox.bind(active=lambda instance, value: self.revisado_traducido_checkbox.active == False if value else None)
-            self.revisado_traducido_checkbox.bind(active=lambda instance, value: self.solo_revision_checkbox.active == False if value else None)
+            # Botones para confirmar con diferentes estados
+            button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
+            solo_revision_button = Button(text='Solo Revisión')
+            solo_revision_button.bind(on_press=lambda x: self.start_mass_import('Solo Revisión'))
+            revisado_traducido_button = Button(text='Revisado y Traducido')
+            revisado_traducido_button.bind(on_press=lambda x: self.start_mass_import('Revisado y Traducido'))
+            button_layout.add_widget(solo_revision_button)
+            button_layout.add_widget(revisado_traducido_button)
 
-            checkbox_layout = BoxLayout(size_hint=(1, 0.2))
-            checkbox_layout.add_widget(Label(text='Solo Revisión'))
-            checkbox_layout.add_widget(self.solo_revision_checkbox)
-            checkbox_layout.add_widget(Label(text='Revisado y Traducido'))
-            checkbox_layout.add_widget(self.revisado_traducido_checkbox)
-            content.add_widget(checkbox_layout)
-
-            # Botones de confirmación y cancelación
-            button_layout = BoxLayout(size_hint=(1, 0.2))
-            confirm_button = Button(text='Confirmar')
-            confirm_button.bind(on_press=self.start_mass_import)
-            cancel_button = Button(text='Cancelar')
-            cancel_button.bind(on_press=lambda x: self.import_confirmation_popup.dismiss())
-            button_layout.add_widget(confirm_button)
-            button_layout.add_widget(cancel_button)
             content.add_widget(button_layout)
 
             self.import_confirmation_popup = Popup(title='Confirmación de Importación',
@@ -1033,10 +1021,10 @@ class ContadorApp(App):
         except Exception as e:
             self.show_warning_popup(f'Error al leer el archivo: {str(e)}')
 
-    def start_mass_import(self, instance):
+    def start_mass_import(self, estado):
         self.import_confirmation_popup.dismiss()
         self.show_progress_overlay()
-        Clock.schedule_once(lambda dt: self.perform_mass_import(), 0.1)
+        Clock.schedule_once(lambda dt: self.perform_mass_import(estado), 0.1)
 
     def show_progress_overlay(self):
         self.progress_overlay = Popup(title='Importando...',
@@ -1046,7 +1034,7 @@ class ContadorApp(App):
         self.progress_overlay.content.value = 0
         self.progress_overlay.open()
 
-    def perform_mass_import(self):
+    def perform_mass_import(self, estado):
         from openpyxl import load_workbook
 
         try:
@@ -1069,7 +1057,6 @@ class ContadorApp(App):
                 rev_ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado'])
 
             imported_count = 0
-            estado = 'Solo Revisión' if self.solo_revision_checkbox.active else 'Revisado y Traducido'
 
             for i, row in enumerate(rows):
                 try:
