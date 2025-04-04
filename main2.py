@@ -250,6 +250,7 @@ class ContadorApp(App):
         
         # Campo de texto MARCA/TITULO
         self.marca_titulo = TextInput(hint_text='MARCA/TITULO', multiline=False, size_hint=(1, 0.1))
+        self.marca_titulo.bind(on_text_validate=self.on_marca_titulo_enter)
         self.marca_titulo.bind(on_text_validate=self.focus_next)
         self.root.add_widget(self.marca_titulo)
         
@@ -1134,6 +1135,82 @@ class ContadorApp(App):
             if hasattr(self, 'progress_overlay'):  # Verificar si el popup existe
                 self.progress_overlay.dismiss()
             self.show_warning_popup(f'Error durante la importación: {str(e)}')
+
+    def on_marca_titulo_enter(self, instance):
+        """
+        Maneja el evento de presionar Enter en el campo de texto "Marca/Titulo".
+        Realiza una búsqueda en la base de datos utilizando las palabras clave ingresadas.
+
+        Ejemplo de uso:
+        - Ingresar "perfume mujer" en el campo "Marca/Titulo".
+        - Presionar Enter para buscar productos que contengan ambas palabras en el título.
+        """
+        keywords = self.marca_titulo.text.strip().split()
+        if not keywords:
+            self.show_warning_popup('El campo Marca/Titulo\nno puede estar vacío.')
+            return
+
+        # Construir la consulta SQL para buscar coincidencias en la columna "titulo"
+        self.cursor.execute('SELECT sku, titulo FROM productos WHERE ' + ' AND '.join(["titulo LIKE ?" for _ in keywords]), [f'%{kw}%' for kw in keywords])
+        results = self.cursor.fetchall()
+
+        if results:
+            self.show_results_popup(results)
+        else:
+            self.show_warning_popup('No se encontraron productos que coincidan con las palabras clave.')
+
+    def show_results_popup(self, results):
+        """
+        Muestra un popup interactivo con los resultados de la búsqueda.
+
+        Argumentos:
+        - results: Lista de tuplas con los resultados de la búsqueda. Cada tupla contiene (sku, titulo).
+
+        Ejemplo de uso:
+        - results = [("12345", "Perfume Mujer"), ("67890", "Perfume Hombre")]
+        - Muestra un popup con botones para cada resultado.
+        """
+        content = BoxLayout(orientation='vertical', spacing=10, padding=10)
+        scroll_view = ScrollView(size_hint=(1, 0.8))
+        results_layout = BoxLayout(orientation='vertical', size_hint_y=None)
+        results_layout.bind(minimum_height=results_layout.setter('height'))
+
+        # Crear un botón para cada resultado
+        for sku, titulo in results:
+            result_button = Button(text=f"{sku} - {titulo}", size_hint_y=None, height=44)
+            result_button.bind(on_release=lambda btn, s=sku, t=titulo: self.select_result(s, t))
+            results_layout.add_widget(result_button)
+
+        scroll_view.add_widget(results_layout)
+        content.add_widget(scroll_view)
+
+        # Botón para cerrar el popup
+        close_button = Button(text='Cerrar', size_hint=(1, 0.1))
+        close_button.bind(on_press=lambda x: self.results_popup.dismiss())
+        content.add_widget(close_button)
+
+        self.results_popup = Popup(title='Resultados de la búsqueda',
+                                   content=content,
+                                   size_hint=(0.8, 0.8))
+        self.results_popup.open()
+
+    def select_result(self, sku, titulo):
+        """
+        Maneja la selección de un producto desde el popup de resultados.
+
+        Argumentos:
+        - sku: Código SKU del producto seleccionado.
+        - titulo: Título del producto seleccionado.
+
+        Ejemplo de uso:
+        - sku = "12345"
+        - titulo = "Perfume Mujer"
+        - Importa estos valores al formulario principal.
+        """
+        self.results_popup.dismiss()
+        self.ean_sku_id.text = sku
+        self.marca_titulo.text = titulo
+        self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
 if __name__ == '__main__':
     try:
