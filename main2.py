@@ -24,6 +24,21 @@ from kivy.uix.filechooser import FileChooserIconView, FileChooserListView  # Imp
 from kivy.uix.togglebutton import ToggleButton  # Importar ToggleButton para alternar vistas
 from kivy.uix.scrollview import ScrollView  # Importar ScrollView para la barra de desplazamiento
 
+# Modificar el FileChooser para evitar errores al acceder a archivos protegidos del sistema
+from kivy.uix.filechooser import FileChooserIconView, FileChooserListView
+from kivy.uix.filechooser import FileChooser
+
+class CustomFileChooser(FileChooser):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.filters = [self.filter_hidden_files]  # Filtro personalizado para excluir archivos ocultos y protegidos
+
+    def filter_hidden_files(self, folder, filename):
+        # Ignorar archivos ocultos o protegidos del sistema
+        # Este filtro puede ser modificado para incluir/excluir otros archivos según sea necesario.
+        # Ejemplo: Agregar más condiciones para otros archivos del sistema o extensiones específicas.
+        return not filename.startswith('.') and not filename.lower() == 'hiberfil.sys'
+
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
 Window.size = (550, 450)  # Tamaño inicial de la ventana
@@ -127,7 +142,7 @@ class LoginScreen(Screen):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (Desarrollo)'
+        self.title = 'Contador de Revisiones (DEV)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
@@ -960,16 +975,16 @@ class ContadorApp(App):
             self.show_add_to_db_popup()
 
     def importacion_revs_masiva(self):
-        self.file_chooser = FileChooserIconView(filters=['*.xlsx'])
+        self.file_chooser = CustomFileChooser(filters=['*.xlsx'])  # Configuración inicial para filtrar archivos Excel
         self.file_chooser_layout = BoxLayout(orientation='vertical', spacing=10, padding=10)
 
         # Campo de texto para filtrar archivos
         self.file_filter_input = TextInput(hint_text='Filtrar archivos...', multiline=False, size_hint=(1, 0.1))
-        self.file_filter_input.bind(text=self.filter_files)
+        self.file_filter_input.bind(text=self.filter_files)  # Permitir al usuario filtrar archivos dinámicamente
 
         # Botón para alternar entre vista de iconos y lista
         self.toggle_view_button = ToggleButton(text='Vista: Iconos', size_hint=(1, 0.1))
-        self.toggle_view_button.bind(on_press=self.toggle_file_chooser_view)
+        self.toggle_view_button.bind(on_press=self.toggle_file_chooser_view)  # Alternar entre vistas según preferencia
 
         # ScrollView para la barra de desplazamiento
         self.file_scroll_view = ScrollView(size_hint=(1, 0.8))
@@ -982,7 +997,7 @@ class ContadorApp(App):
         self.file_chooser_popup = Popup(title='Seleccionar archivo .xlsx',
                                         content=self.file_chooser_layout,
                                         size_hint=(0.8, 0.8))
-        self.file_chooser.bind(on_submit=self.on_file_selected)
+        self.file_chooser.bind(on_submit=self.on_file_selected)  # Vincular evento para manejar selección de archivo
         self.file_chooser_popup.open()
 
     def filter_files(self, instance, text):
