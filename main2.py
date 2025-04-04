@@ -29,7 +29,35 @@ Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
 Window.size = (550, 450)  # Tamaño inicial de la ventana
 
 # Variable para activar/desactivar el control de usuario/contraseña
-ENABLE_LOGIN = False
+ENABLE_LOGIN = True
+
+# Variables para configurar el título dinámico
+ENABLE_DYNAMIC_TITLE = True  # Activar o desactivar el título dinámico
+TITLE_UPDATE_INTERVAL = 5  # Intervalo de actualización en segundos
+
+# Función para actualizar el título de la ventana dinámicamente
+def update_window_title(dt=None):
+    """Actualiza el título de la ventana con el conteo dinámico."""
+    if not ENABLE_DYNAMIC_TITLE:
+        return  # Salir si el título dinámico está desactivado
+
+    fecha = datetime.now().strftime('%d-%m-%Y')
+    archivo = f'REVs/REV-{fecha}.xlsx'
+    rev_count = 0
+    ryt_count = 0
+
+    if os.path.exists(archivo):
+        wb = load_workbook(archivo)
+        ws = wb.active
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            estado = row[9]  # Columna "Estado"
+            if estado == "Solo Revisión":
+                rev_count += 1
+            elif estado == "Revisado y Traducido":
+                rev_count += 1
+                ryt_count += 1
+
+    Window.set_title(f'Contador de Revisiones (DESARROLLO) REV: {rev_count} / RYT: {ryt_count}')
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -98,7 +126,7 @@ class LoginScreen(Screen):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (DESARROLLO)'
+        self.title = 'Contador de Revisiones (Desarrollo)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
@@ -111,6 +139,10 @@ class ContadorApp(App):
         # Saltar la pantalla de login si ENABLE_LOGIN está desactivado
         if not ENABLE_LOGIN:
             self.screen_manager.current = 'main'
+
+        # Configurar el título dinámico de la ventana si está habilitado
+        if ENABLE_DYNAMIC_TITLE:
+            Clock.schedule_interval(update_window_title, TITLE_UPDATE_INTERVAL)
 
         return self.screen_manager
 
@@ -252,7 +284,7 @@ class ContadorApp(App):
         # Botones
         self.revisado_btn = Button(text='REVISADO', size_hint=(1, 1))
         self.revisado_btn.bind(on_press=self.on_revisado)
-        self.traducir_btn = Button(text='TRADUCIR/BETA', size_hint=(1, 1), background_color=(0.5, 0, 0.5, 1))  # Color morado
+        self.traducir_btn = Button(text='TRADUCIR', size_hint=(1, 1))
         self.traducir_btn.bind(on_press=self.on_traducir)
         self.traducido_btn = Button(text='TRADUCIDO', size_hint=(1, 1))
         self.traducido_btn.bind(on_press=self.on_traducido)
@@ -1082,6 +1114,26 @@ class ContadorApp(App):
         except Exception as e:
             self.progress_overlay.dismiss()
             self.show_warning_popup(f'Error durante la importación: {str(e)}')
+
+    def update_window_title(self, dt):
+        """Actualiza el título de la ventana con el conteo dinámico."""
+        fecha = datetime.now().strftime('%d-%m-%Y')
+        archivo = f'REVs/REV-{fecha}.xlsx'
+        rev_count = 0
+        ryt_count = 0
+
+        if os.path.exists(archivo):
+            wb = load_workbook(archivo)
+            ws = wb.active
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                estado = row[9]  # Columna "Estado"
+                if estado == "Solo Revisión":
+                    rev_count += 1
+                elif estado == "Revisado y Traducido":
+                    rev_count += 1
+                    ryt_count += 1
+
+        self.title = f'Contador de Revisiones (DESARROLLO) REV: {rev_count} / RYT: {ryt_count}'
 
 if __name__ == '__main__':
     try:
