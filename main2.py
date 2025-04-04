@@ -47,15 +47,16 @@ def update_window_title(dt=None):
     ryt_count = 0
 
     if os.path.exists(archivo):
-        wb = load_workbook(archivo)
+        wb = load_workbook(archivo, data_only=True)  # Asegurarse de cargar valores calculados
         ws = wb.active
         for row in ws.iter_rows(min_row=2, values_only=True):
-            estado = row[9]  # Columna "Estado"
-            if estado == "Solo Revisión":
-                rev_count += 1
-            elif estado == "Revisado y Traducido":
-                rev_count += 1
-                ryt_count += 1
+            if row:  # Verificar que la fila no esté vacía
+                estado = row[9]  # Columna "Estado"
+                if estado == "Solo Revisión":
+                    rev_count += 1
+                elif estado == "Revisado y Traducido":
+                    rev_count += 1
+                    ryt_count += 1
 
     Window.set_title(f'Contador de Revisiones (DEV) REV: {rev_count} / RYT: {ryt_count}')
 
@@ -468,7 +469,8 @@ class ContadorApp(App):
             self.cursor.execute('INSERT INTO productos (sku, titulo, eans) VALUES (?, ?, ?)', (sku, title, eans))
             self.conn.commit()
             self.loading_popup.dismiss()
-            self.add_to_db_popup.dismiss()
+            if hasattr(self, 'add_to_db_popup'):  # Verificar si el popup existe
+                self.add_to_db_popup.dismiss()
             self.ean_sku_id.text = sku
             self.marca_titulo.text = title
         else:
@@ -825,21 +827,21 @@ class ContadorApp(App):
             self.status_bar.text = 'Estado: Modo bloqueo desactivado'
 
     def apply_locked_values(self):
-        self.tipo_combobox.text = self.locked_values['tipo']
-        self.check_zz.active = self.locked_values['check_zz']
-        self.check_lote.active = self.locked_values['check_lote']
-        self.check_set_pack.active = self.locked_values['check_set_pack']
-        self.check_consumo.active = self.locked_values['check_consumo']
-        self.check_edt_edp.active = self.locked_values['check_edt_edp']
-        self.check_makeup.active = self.locked_values['check_makeup']
-        self.check_pt.active = self.locked_values['check_pt']
-        self.check_es.active = self.locked_values['check_es']
-        self.check_it.active = self.locked_values['check_it']
-        self.slider.value = self.locked_values['slider_value']
-        self.slider_value.text = self.locked_values['slider_text']  # Aplicar el valor del campo numérico
-        self.check_und.active = self.locked_values['check_und']
-        self.check_ml.active = self.locked_values['check_ml']
-        self.check_gr.active = self.locked_values['check_gr']
+        self.tipo_combobox.text = self.locked_values.get('tipo', '')
+        self.check_zz.active = self.locked_values.get('check_zz', False)
+        self.check_lote.active = self.locked_values.get('check_lote', False)
+        self.check_set_pack.active = self.locked_values.get('check_set_pack', False)  # Corregir KeyError
+        self.check_consumo.active = self.locked_values.get('check_consumo', False)
+        self.check_edt_edp.active = self.locked_values.get('check_edt_edp', False)
+        self.check_makeup.active = self.locked_values.get('check_makeup', False)
+        self.check_pt.active = self.locked_values.get('check_pt', False)
+        self.check_es.active = self.locked_values.get('check_es', False)
+        self.check_it.active = self.locked_values.get('check_it', False)
+        self.slider.value = self.locked_values.get('slider_value', 1)
+        self.slider_value.text = self.locked_values.get('slider_text', '1')
+        self.check_und.active = self.locked_values.get('check_und', False)
+        self.check_ml.active = self.locked_values.get('check_ml', False)
+        self.check_gr.active = self.locked_values.get('check_gr', False)
 
     def open_dropdown(self, instance):
         if self.dropdown.parent:
@@ -1103,16 +1105,19 @@ class ContadorApp(App):
 
                     rev_ws.append([sku, titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado])
                     imported_count += 1
-                    self.progress_overlay.content.value = int((i + 1) / total_rows * 100)
+                    if hasattr(self, 'progress_overlay'):  # Verificar si el popup existe
+                        self.progress_overlay.content.value = int((i + 1) / total_rows * 100)
                     self.root.do_layout()
                 except Exception as e:
                     self.show_warning_popup(f'Error al importar el producto en la fila {i + 2}: {str(e)}')
 
             rev_wb.save(archivo)
-            self.progress_overlay.dismiss()
+            if hasattr(self, 'progress_overlay'):  # Verificar si el popup existe
+                self.progress_overlay.dismiss()
             self.status_bar.text = f'Importación Masiva Completada: {imported_count} productos'
         except Exception as e:
-            self.progress_overlay.dismiss()
+            if hasattr(self, 'progress_overlay'):  # Verificar si el popup existe
+                self.progress_overlay.dismiss()
             self.show_warning_popup(f'Error durante la importación: {str(e)}')
 
 if __name__ == '__main__':
