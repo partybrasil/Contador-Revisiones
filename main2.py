@@ -1115,26 +1115,6 @@ class ContadorApp(App):
             self.progress_overlay.dismiss()
             self.show_warning_popup(f'Error durante la importación: {str(e)}')
 
-    def update_window_title(self, dt):
-        """Actualiza el título de la ventana con el conteo dinámico."""
-        fecha = datetime.now().strftime('%d-%m-%Y')
-        archivo = f'REVs/REV-{fecha}.xlsx'
-        rev_count = 0
-        ryt_count = 0
-
-        if os.path.exists(archivo):
-            wb = load_workbook(archivo)
-            ws = wb.active
-            for row in ws.iter_rows(min_row=2, values_only=True):
-                estado = row[9]  # Columna "Estado"
-                if estado == "Solo Revisión":
-                    rev_count += 1
-                elif estado == "Revisado y Traducido":
-                    rev_count += 1
-                    ryt_count += 1
-
-        self.title = f'Contador de Revisiones (DESARROLLO) REV: {rev_count} / RYT: {ryt_count}'
-
 if __name__ == '__main__':
     try:
         ContadorApp().run()
