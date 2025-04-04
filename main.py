@@ -57,7 +57,7 @@ def update_window_title(dt=None):
                 rev_count += 1
                 ryt_count += 1
 
-    Window.set_title(f'Contador de Revisiones (OFICIAL) REV: {rev_count} / RYT: {ryt_count}')
+    Window.set_title(f'Contador de Revisiones (OFFICIAL) REV: {rev_count} / RYT: {ryt_count}')
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
