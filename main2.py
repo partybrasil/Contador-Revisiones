@@ -140,9 +140,13 @@ class ContadorApp(App):
         if not ENABLE_LOGIN:
             self.screen_manager.current = 'main'
 
+<<<<<<< HEAD
         # Configurar el título dinámico de la ventana si está habilitado
         if ENABLE_DYNAMIC_TITLE:
             Clock.schedule_interval(update_window_title, TITLE_UPDATE_INTERVAL)
+=======
+        Clock.schedule_interval(self.update_window_title, 1)  # Actualizar título cada segundo
+>>>>>>> 0f72210a3aec623ec697ae5e329c4eb8467d340b
 
         return self.screen_manager
 
