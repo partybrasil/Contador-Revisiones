@@ -44,7 +44,7 @@ Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
 Window.size = (550, 450)  # Tamaño inicial de la ventana
 
 # Variable para activar/desactivar el control de usuario/contraseña
-ENABLE_LOGIN = True
+ENABLE_LOGIN = False
 
 # Variables para configurar el título dinámico
 ENABLE_DYNAMIC_TITLE = True  # Activar o desactivar el título dinámico
@@ -1140,24 +1140,43 @@ class ContadorApp(App):
         """
         Maneja el evento de presionar Enter en el campo de texto "Marca/Titulo".
         Realiza una búsqueda en la base de datos utilizando las palabras clave ingresadas.
-
-        Ejemplo de uso:
-        - Ingresar "perfume mujer" en el campo "Marca/Titulo".
-        - Presionar Enter para buscar productos que contengan ambas palabras en el título.
         """
         keywords = self.marca_titulo.text.strip().split()
         if not keywords:
             self.show_warning_popup('El campo Marca/Titulo\nno puede estar vacío.')
             return
 
+        # Mostrar barra de progreso mientras se realiza la búsqueda
+        self.show_progress_popup('Buscando productos...')
+
         # Construir la consulta SQL para buscar coincidencias en la columna "titulo"
         self.cursor.execute('SELECT sku, titulo FROM productos WHERE ' + ' AND '.join(["titulo LIKE ?" for _ in keywords]), [f'%{kw}%' for kw in keywords])
         results = self.cursor.fetchall()
+
+        # Cerrar la barra de progreso
+        self.progress_popup.dismiss()
 
         if results:
             self.show_results_popup(results)
         else:
             self.show_warning_popup('No se encontraron productos que coincidan con las palabras clave.')
+
+    def show_progress_popup(self, message):
+        """
+        Muestra un popup con una barra de progreso y un mensaje.
+
+        Argumentos:
+        - message: Mensaje a mostrar en el popup.
+        """
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        content.add_widget(Label(text=message, size_hint=(1, 0.2)))
+        progress_bar = ProgressBar(max=100, value=50, size_hint=(1, 0.2))
+        content.add_widget(progress_bar)
+        self.progress_popup = Popup(title='Procesando',
+                                    content=content,
+                                    size_hint=(0.6, 0.4),
+                                    auto_dismiss=False)
+        self.progress_popup.open()
 
     def show_results_popup(self, results):
         """
@@ -1189,7 +1208,8 @@ class ContadorApp(App):
         close_button.bind(on_press=lambda x: self.results_popup.dismiss())
         content.add_widget(close_button)
 
-        self.results_popup = Popup(title='Resultados de la búsqueda',
+        num_results = len(results)
+        self.results_popup = Popup(title=f'Resultados de la búsqueda ({num_results}) Productos Encontrados MATCHs',
                                    content=content,
                                    size_hint=(0.8, 0.8))
         self.results_popup.open()
