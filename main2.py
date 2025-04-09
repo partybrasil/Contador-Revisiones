@@ -34,10 +34,12 @@ class CustomFileChooser(FileChooser):
         self.filters = [self.filter_hidden_files]  # Filtro personalizado para excluir archivos ocultos y protegidos
 
     def filter_hidden_files(self, folder, filename):
-        # Ignorar archivos ocultos o protegidos del sistema
-        # Este filtro puede ser modificado para incluir/excluir otros archivos según sea necesario.
-        # Ejemplo: Agregar más condiciones para otros archivos del sistema o extensiones específicas.
-        return not filename.startswith('.') and not filename.lower() == 'hiberfil.sys'
+        try:
+            # Ignorar archivos ocultos o protegidos del sistema
+            return not filename.startswith('.') and not filename.lower() in ['hiberfil.sys', 'pagefile.sys', 'swapfile.sys', 'dumpstack.log.tmp']
+        except Exception:
+            # Si ocurre un error al intentar acceder al archivo, ignorarlo
+            return False
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
@@ -48,7 +50,7 @@ ENABLE_LOGIN = False
 
 # Variables para configurar el título dinámico
 ENABLE_DYNAMIC_TITLE = True  # Activar o desactivar el título dinámico
-TITLE_UPDATE_INTERVAL = 5  # Intervalo de actualización en segundos
+TITLE_UPDATE_INTERVAL = 3  # Intervalo de actualización en segundos
 
 # Función para actualizar el título de la ventana dinámicamente
 def update_window_title(dt=None):
@@ -429,7 +431,7 @@ class ContadorApp(App):
         popup.open()
 
     def on_info_popup_dismiss(self, instance):
-        Window.unbind(on_key_down=self.on_key_down)
+        Window.unbind(on_key_down=self.on_key_down)  # Corregido: especificar el evento y el método a desregistrar
 
     def on_key_down(self, window, key, *args):
         if key in [27, 13]:  # Códigos de tecla ESC [27] y ENTER [13]
@@ -1024,10 +1026,80 @@ class ContadorApp(App):
         # Actualizar el texto del botón
         self.toggle_view_button.text = 'Vista: Iconos' if isinstance(self.file_chooser, FileChooserListView) else 'Vista: Lista'
 
+    def verify_products_in_db(self, file_path):
+        """
+        Verifica si los productos del archivo a importar existen en la base de datos.
+        Si no existen, solicita confirmación para registrarlos.
+        """
+        wb = load_workbook(file_path)
+        ws = wb.active
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        missing_products = []
+
+        for row in rows:
+            sku, titulo, eans = row[:3]
+            self.cursor.execute('SELECT sku FROM productos WHERE sku = ?', (sku,))
+            if not self.cursor.fetchone():
+                missing_products.append((sku, titulo, eans))
+
+        if missing_products:
+            self.show_missing_products_popup(missing_products, file_path)
+        else:
+            self.show_import_confirmation(file_path)
+
+    def show_missing_products_popup(self, missing_products, file_path):
+        """
+        Muestra un popup con los productos que no existen en la base de datos.
+        Permite al usuario decidir si desea registrarlos o continuar sin registrarlos.
+        """
+        content = BoxLayout(orientation='vertical', spacing=10, padding=10)
+        scroll_view = ScrollView(size_hint=(1, 0.8))
+        products_layout = BoxLayout(orientation='vertical', size_hint_y=None)
+        products_layout.bind(minimum_height=products_layout.setter('height'))
+
+        for sku, titulo, eans in missing_products:
+            products_layout.add_widget(Label(text=f"SKU: {sku}, Título: {titulo}, EANs: {eans}"))
+
+        scroll_view.add_widget(products_layout)
+        content.add_widget(scroll_view)
+
+        button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
+        register_button = Button(text='Registrar en DB')
+        register_button.bind(on_press=lambda x: self.register_missing_products(missing_products, file_path))
+        continue_button = Button(text='Continuar sin registrar')
+        continue_button.bind(on_press=lambda x: self.show_import_confirmation(file_path))
+        button_layout.add_widget(register_button)
+        button_layout.add_widget(continue_button)
+
+        content.add_widget(button_layout)
+
+        self.missing_products_popup = Popup(title='Productos no encontrados en DB',
+                                             content=content,
+                                             size_hint=(0.8, 0.8))
+        self.missing_products_popup.open()
+
+    def register_missing_products(self, missing_products, file_path):
+        """
+        Registra los productos faltantes en la base de datos y continúa con la importación masiva.
+        """
+        self.missing_products_popup.dismiss()
+        self.show_progress_popup('Registrando productos en DB...')
+
+        try:
+            for sku, titulo, eans in missing_products:
+                self.cursor.execute('INSERT INTO productos (sku, titulo, eans) VALUES (?, ?, ?)', (sku, titulo, eans))
+            self.conn.commit()
+            self.progress_popup.dismiss()
+            self.status_bar.text = f'{len(missing_products)} productos registrados en DB correctamente.'
+            self.show_import_confirmation(file_path)
+        except Exception as e:
+            self.progress_popup.dismiss()
+            self.show_warning_popup(f'Error al registrar productos en DB: {str(e)}')
+
     def on_file_selected(self, instance, selection, *args):
         if selection:
             self.file_chooser_popup.dismiss()
-            self.show_import_confirmation(selection[0])
+            self.verify_products_in_db(selection[0])
 
     def show_import_confirmation(self, file_path):
         self.import_file_path = file_path
@@ -1037,7 +1109,6 @@ class ContadorApp(App):
             ws = wb.active
             rows = list(ws.iter_rows(min_row=2, values_only=True))
             total_rows = len(rows)
-            estimated_time = f"{total_rows * 0.1:.1f} segundos"  # ETA estimado (0.1s por producto)
 
             # Resumen de características seleccionadas
             tipo = self.selected_tipo if hasattr(self, 'selected_tipo') else 'ZZ' if self.check_zz.active else 'LOTE' if self.check_lote.active else 'Set & Pack' if self.check_set_pack.active else 'Consumo' if self.check_consumo.active else 'EDT & EDP' if self.check_edt_edp.active else 'MakeUP' if self.check_makeup.active else ''
@@ -1049,9 +1120,22 @@ class ContadorApp(App):
 
             # Crear el contenido del popup
             content = BoxLayout(orientation='vertical', padding=10, spacing=10)
-            content.add_widget(Label(text=f'Se importarán {total_rows} productos del archivo:\n{file_path}', size_hint=(1, 0.2)))
-            content.add_widget(Label(text=f'ETA estimado: {estimated_time}', size_hint=(1, 0.2)))
-            content.add_widget(Label(text=f'Características seleccionadas:\nTipo: {tipo}\nPT: {tiene_pt}\nES: {tiene_es}\nIT: {tiene_it}\nCantidad Neta: {cantidad_neta} {unidad}', size_hint=(1, 0.4)))
+            scroll_view = ScrollView(size_hint=(1, 0.6))
+            summary_layout = BoxLayout(orientation='vertical', size_hint_y=None, spacing=5, padding=5)
+            summary_layout.bind(minimum_height=summary_layout.setter('height'))
+
+            # Agregar información del archivo y características seleccionadas
+            summary_layout.add_widget(Label(text=f'Archivo seleccionado:\n{file_path}', size_hint_y=None, height=60, halign='left', valign='middle', text_size=(500, None)))
+            summary_layout.add_widget(Label(text=f'Total de productos a importar: {total_rows}', size_hint_y=None, height=40, halign='left', valign='middle', text_size=(500, None)))
+            summary_layout.add_widget(Label(text=f'Características seleccionadas:', size_hint_y=None, height=30, bold=True))
+            summary_layout.add_widget(Label(text=f'- Tipo: {tipo}', size_hint_y=None, height=30))
+            summary_layout.add_widget(Label(text=f'- PT: {tiene_pt}', size_hint_y=None, height=30))
+            summary_layout.add_widget(Label(text=f'- ES: {tiene_es}', size_hint_y=None, height=30))
+            summary_layout.add_widget(Label(text=f'- IT: {tiene_it}', size_hint_y=None, height=30))
+            summary_layout.add_widget(Label(text=f'- Cantidad Neta: {cantidad_neta} {unidad}', size_hint_y=None, height=30))
+
+            scroll_view.add_widget(summary_layout)
+            content.add_widget(scroll_view)
 
             # Botones para confirmar con diferentes estados
             button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
