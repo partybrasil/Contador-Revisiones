@@ -23,6 +23,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.filechooser import FileChooserIconView, FileChooserListView  # Importar para seleccionar archivos
 from kivy.uix.togglebutton import ToggleButton  # Importar ToggleButton para alternar vistas
 from kivy.uix.scrollview import ScrollView  # Importar ScrollView para la barra de desplazamiento
+import psutil  # Importar la biblioteca psutil para monitorear recursos del sistema
 
 # Modificar el FileChooser para evitar errores al acceder a archivos protegidos del sistema
 from kivy.uix.filechooser import FileChooserIconView, FileChooserListView
@@ -54,7 +55,7 @@ TITLE_UPDATE_INTERVAL = 3  # Intervalo de actualización en segundos
 
 # Función para actualizar el título de la ventana dinámicamente
 def update_window_title(dt=None):
-    """Actualiza el título de la ventana con el conteo dinámico."""
+    """Actualiza el título de la ventana con el conteo dinámico y el uso de recursos."""
     if not ENABLE_DYNAMIC_TITLE:
         return  # Salir si el título dinámico está desactivado
 
@@ -75,7 +76,12 @@ def update_window_title(dt=None):
                     rev_count += 1
                     ryt_count += 1
 
-    Window.set_title(f'Contador de Revisiones (DEV) REV: {rev_count} / RYT: {ryt_count}')
+    # Obtener el uso de CPU y RAM
+    cpu_usage = psutil.cpu_percent(interval=0.1)
+    ram_usage = psutil.virtual_memory().percent
+
+    # Actualizar el título de la ventana
+    Window.set_title(f'Contador de Revisiones V2 (OFICIAL) REV: {rev_count} / RYT: {ryt_count} (CPU: {cpu_usage}% / RAM: {ram_usage}%)')
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -144,7 +150,7 @@ class LoginScreen(Screen):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones (DEV)'
+        self.title = 'Contador de Revisiones V2 (OFICIAL)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
