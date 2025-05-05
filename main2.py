@@ -24,6 +24,12 @@ from kivy.uix.filechooser import FileChooserIconView, FileChooserListView  # Imp
 from kivy.uix.togglebutton import ToggleButton  # Importar ToggleButton para alternar vistas
 from kivy.uix.scrollview import ScrollView  # Importar ScrollView para la barra de desplazamiento
 import psutil  # Importar la biblioteca psutil para monitorear recursos del sistema
+from kivy.animation import Animation
+from kivy.logger import Logger
+import logging
+
+# Configurar el nivel de registro para ocultar mensajes de error específicos
+Logger.setLevel(logging.CRITICAL)
 
 # Modificar el FileChooser para evitar errores al acceder a archivos protegidos del sistema
 from kivy.uix.filechooser import FileChooserIconView, FileChooserListView
@@ -37,7 +43,8 @@ class CustomFileChooser(FileChooser):
     def filter_hidden_files(self, folder, filename):
         try:
             # Ignorar archivos ocultos o protegidos del sistema
-            return not filename.startswith('.') and not filename.lower() in ['hiberfil.sys', 'pagefile.sys', 'swapfile.sys', 'dumpstack.log.tmp']
+            protected_files = ['hiberfil.sys', 'pagefile.sys', 'swapfile.sys', 'dumpstack.log.tmp']
+            return not filename.startswith('.') and filename.lower() not in protected_files
         except Exception:
             # Si ocurre un error al intentar acceder al archivo, ignorarlo
             return False
@@ -811,17 +818,42 @@ class ContadorApp(App):
     def on_reset(self, instance):
         self.reset_start_time = datetime.now()
         self.status_bar.text = 'Estado: Mantenga presionado para resetear...'
+        self.show_countdown_animation(instance)  # Mostrar la animación de cuenta regresiva
         Clock.schedule_once(self.reset_ready, 3)
 
-    def reset_ready(self, dt):
-        self.status_bar.text = 'Estado: RESET Finalizado!!'
+    def show_countdown_animation(self, instance):
+        """Muestra una animación de cuenta regresiva sobre la UI."""
+        self.countdown_label = Label(text="3", font_size=50, color=(1, 0, 0, 1), size_hint=(None, None), size=(100, 100))
+        # Agregar el widget al contenido de la pantalla actual
+        current_screen = self.screen_manager.current_screen
+        current_screen.add_widget(self.countdown_label)
+
+        def update_countdown_label(dt):
+            remaining_time = 3 - (datetime.now() - self.reset_start_time).total_seconds()
+            if remaining_time > 0:
+                self.countdown_label.text = str(int(remaining_time))
+            else:
+                current_screen.remove_widget(self.countdown_label)
+
+        self.countdown_animation = Animation(x=instance.center_x, y=instance.center_y, duration=3)
+        self.countdown_animation.bind(on_complete=lambda *args: current_screen.remove_widget(self.countdown_label))
+        self.countdown_animation.start(self.countdown_label)
+        Clock.schedule_interval(update_countdown_label, 0.1)
 
     def on_reset_release(self, instance):
+        current_screen = self.screen_manager.current_screen
+        if hasattr(self, 'countdown_label') and self.countdown_label in current_screen.children:
+            current_screen.remove_widget(self.countdown_label)  # Eliminar la animación si se cancela
         if (datetime.now() - self.reset_start_time).total_seconds() >= 3:
             self.reset_fields()
             self.status_bar.text = 'Estado: Interfaz reseteada'
         else:
             self.status_bar.text = 'Estado: Reset cancelado'
+
+    def reset_ready(self, dt):
+        """Completa el proceso de reinicio después de la cuenta regresiva."""
+        self.reset_fields()
+        self.status_bar.text = 'Estado: Interfaz reseteada'
 
     def toggle_lock_mode(self, instance):
         self.lock_mode = not self.lock_mode
@@ -1133,7 +1165,7 @@ class ContadorApp(App):
             # Agregar información del archivo y características seleccionadas
             summary_layout.add_widget(Label(text=f'Archivo seleccionado:\n{file_path}', size_hint_y=None, height=60, halign='left', valign='middle', text_size=(500, None)))
             summary_layout.add_widget(Label(text=f'Total de productos a importar: {total_rows}', size_hint_y=None, height=40, halign='left', valign='middle', text_size=(500, None)))
-            summary_layout.add_widget(Label(text=f'Características seleccionadas:', size_hint_y=None, height=30, bold=True))
+            summary_layout.add_widget(Label(text='Características seleccionadas:', size_hint_y=None, height=30, bold=True))
             summary_layout.add_widget(Label(text=f'- Tipo: {tipo}', size_hint_y=None, height=30))
             summary_layout.add_widget(Label(text=f'- PT: {tiene_pt}', size_hint_y=None, height=30))
             summary_layout.add_widget(Label(text=f'- ES: {tiene_es}', size_hint_y=None, height=30))
