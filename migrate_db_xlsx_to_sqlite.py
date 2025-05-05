@@ -25,18 +25,19 @@ print(f'Iniciando la migración de {total_rows} productos...')
 # Insertar datos en la base de datos SQLite
 for idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=1):
     sku, titulo, eans = row
-    eans_list = eans.split(',')  # Separar los EANs por coma
-    eans_combined = ','.join([ean.strip() for ean in eans_list])
+    eans_combined = ','.join(e.strip() for e in eans.split(','))  # Normalizar EANs
     
     # Verificar si el producto ya existe
     cursor.execute('SELECT eans FROM productos WHERE sku = ?', (sku,))
     result = cursor.fetchone()
     if result:
+        # Actualizar EANs si ya existe
         existing_eans = result[0]
         new_eans = ','.join(set(existing_eans.split(',') + eans_combined.split(',')))
         cursor.execute('UPDATE productos SET eans = ? WHERE sku = ?', (new_eans, sku))
     else:
-        cursor.execute('INSERT OR IGNORE INTO productos (sku, titulo, eans) VALUES (?, ?, ?)', (sku, titulo, eans_combined))
+        # Insertar nuevo producto
+        cursor.execute('INSERT INTO productos (sku, titulo, eans) VALUES (?, ?, ?)', (sku, titulo, eans_combined))
     
     print(f'Progreso: {idx}/{total_rows} productos migrados')
 

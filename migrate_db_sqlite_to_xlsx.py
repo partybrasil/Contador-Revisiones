@@ -10,7 +10,7 @@ wb = Workbook()
 ws = wb.active
 
 # Escribir los encabezados en la primera fila
-ws.append(['SKU', 'Titulo', 'EANs'])
+ws.append(['SKU', 'Titulo', 'EANs'])  # Encabezados de las columnas
 
 # Obtener todos los productos de la base de datos
 cursor.execute('SELECT sku, titulo, eans FROM productos')
@@ -22,7 +22,7 @@ print(f'Iniciando la migración de {total_productos} productos...')
 
 # Escribir los datos de los productos en el archivo Excel
 for idx, producto in enumerate(productos, start=1):
-    ws.append(producto)
+    ws.append(producto)  # Agregar cada producto como una fila
     print(f'Progreso: {idx}/{total_productos} productos migrados')
 
 # Guardar el archivo Excel
