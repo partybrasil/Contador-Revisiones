@@ -81,7 +81,7 @@ def update_window_title(dt=None):
     ram_usage = psutil.virtual_memory().percent
 
     # Actualizar el título de la ventana
-    Window.set_title(f'Contador de Revisiones V2 (OFICIAL) REV: {rev_count} / RYT: {ryt_count} (CPU: {cpu_usage}% / RAM: {ram_usage}%)')
+    Window.set_title(f'Contador de Revisiones V2.0 (OFICIAL) REV: {rev_count} / RYT: {ryt_count} (CPU: {cpu_usage}% / RAM: {ram_usage}%)')
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -150,7 +150,7 @@ class LoginScreen(Screen):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones V2 (OFICIAL)'
+        self.title = 'Contador de Revisiones V2.0 (OFICIAL)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
