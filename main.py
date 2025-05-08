@@ -1,5 +1,12 @@
+# Kivy Core Imports
 import kivy
 from kivy.app import App
+from kivy.core.window import Window
+from kivy.clock import Clock
+from kivy.logger import Logger
+from kivy.graphics import Color, Rectangle
+
+# Kivy UI Components
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
@@ -8,34 +15,30 @@ from kivy.uix.button import Button
 from kivy.uix.slider import Slider
 from kivy.uix.progressbar import ProgressBar
 from kivy.uix.popup import Popup
-from kivy.core.window import Window
-import sqlite3
-from datetime import datetime
-import os
-from openpyxl import load_workbook, Workbook
 from kivy.uix.switch import Switch
-from kivy.uix.widget import Widget
-from kivy.graphics import Color, Rectangle
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
-from kivy.clock import Clock
 from kivy.uix.dropdown import DropDown
 from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.uix.filechooser import FileChooserIconView, FileChooserListView  # Importar para seleccionar archivos
-from kivy.uix.togglebutton import ToggleButton  # Importar ToggleButton para alternar vistas
-from kivy.uix.scrollview import ScrollView  # Importar ScrollView para la barra de desplazamiento
-import psutil  # Importar la biblioteca psutil para monitorear recursos del sistema
+from kivy.uix.filechooser import FileChooserIconView, FileChooserListView
+from kivy.uix.togglebutton import ToggleButton
+from kivy.uix.scrollview import ScrollView
 from kivy.animation import Animation
-from kivy.logger import Logger
+
+# Standard Library Imports
+import os
+import sqlite3
 import logging
+from datetime import datetime
+
+# Third-Party Library Imports
+from openpyxl import load_workbook, Workbook
+import psutil
 
 # Configurar el nivel de registro para ocultar mensajes de error específicos
 Logger.setLevel(logging.CRITICAL)
 
-# Modificar el FileChooser para evitar errores al acceder a archivos protegidos del sistema
-from kivy.uix.filechooser import FileChooserIconView, FileChooserListView
-from kivy.uix.filechooser import FileChooser
 
-class CustomFileChooser(FileChooser):
+class CustomFileChooser(FileChooserIconView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.filters = [self.filter_hidden_files]  # Filtro personalizado para excluir archivos ocultos y protegidos
