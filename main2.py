@@ -91,7 +91,7 @@ def update_window_title(dt=None):
     ram_usage = psutil.virtual_memory().percent
 
     # Actualizar el título de la ventana
-    Window.set_title(f'Contador de Revisiones V2.0 (DEV) REV: {rev_count} / RYT: {ryt_count} (CPU: {cpu_usage}% / RAM: {ram_usage}%)')
+    Window.set_title(f'Contador de Revisiones V2.X (DEV) REV: {rev_count} / RYT: {ryt_count} (CPU: {cpu_usage}% / RAM: {ram_usage}%)')
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -160,7 +160,7 @@ class LoginScreen(Screen):
 
 class ContadorApp(App):
     def build(self):
-        self.title = 'Contador de Revisiones V2.0 (DEV)'
+        self.title = 'Contador de Revisiones V2.X (DEV)'
         self.screen_manager = ScreenManager()
 
         self.login_screen = LoginScreen(name='login')
@@ -248,16 +248,16 @@ class ContadorApp(App):
             self.dropdown.add_widget(btn)
         self.dropdown.bind(on_select=self.on_tipo_select)
         
-        # Botones EX1 y EDIT DB
+        # Botones EX1 y EX2
         self.ex1_btn = Button(text='LOCK', size_hint=(0.25, 1))
         self.ex1_btn.bind(on_press=self.toggle_lock_mode)
-        self.edit_db_btn = Button(text='EDIT DB', size_hint=(0.25, 1))  # Renombrado a "EDIT DB"
-        self.edit_db_btn.bind(on_press=self.edit_db_popup)  # Vincular a la nueva función
+        self.ex2_btn = Button(text='IN/OUT', size_hint=(0.25, 1))  # Renombrar a "IN/OUT"
+        self.ex2_btn.bind(on_press=self.toggle_login_screen)  # Vincular a la nueva función
         
         combobox_layout = BoxLayout(size_hint=(1, 0.1))
         combobox_layout.add_widget(self.ex1_btn)
         combobox_layout.add_widget(self.tipo_combobox)
-        combobox_layout.add_widget(self.edit_db_btn)
+        combobox_layout.add_widget(self.ex2_btn)
         
         self.root.add_widget(combobox_layout)
         
@@ -354,7 +354,6 @@ class ContadorApp(App):
         self.locked_values = {}  # Diccionario para almacenar los valores bloqueados
         
         Clock.schedule_interval(self.check_focus, 0.1)  # Verificar el foco cada 0.1 segundos
-
         return self.root
 
     def init_db(self):
@@ -389,47 +388,24 @@ class ContadorApp(App):
         else:
             self.slider_value.text = str(int(self.slider.value))
 
-    # Palabras clave para búsquedas especiales
-    SECRET_KEYWORD = "ALLIN"  # Mostrar todos los productos
-    DUPLICATE_EAN_KEYWORD = "ALLDUPE"  # Mostrar productos con EANs duplicados
-
-    # Tamaño del bloque para carga diferida
-    RESULTS_BLOCK_SIZE = 50
-
     def on_ean_enter(self, instance):
-        """
-        Maneja la consulta por EAN/SKU/ID. Si hay múltiples productos con el mismo EAN,
-        muestra una lista para seleccionar uno.
-        """
         ean = self.ean_sku_id.text.strip()
         if not ean:
             self.show_warning_popup('El campo EAN/SKU/ID\nno puede estar vacío.')
             return
 
-        # Verificar si se ingresó la palabra clave para EANs duplicados
-        if ean == self.DUPLICATE_EAN_KEYWORD:
-            self.cursor.execute('''
-                SELECT eans, COUNT(*) 
-                FROM productos 
-                WHERE eans != "NO-EAN" 
-                GROUP BY eans 
-                HAVING COUNT(*) > 1 
-                ORDER BY eans
-            ''')
-            results = self.cursor.fetchall()
-            if results:
-                self.show_results_popup([(row[0], f'{row[1]} productos') for row in results], title='EANs Duplicados')
-            else:
-                self.show_warning_popup('No se encontraron EANs duplicados.')
-            return
-
-        # Buscar productos por EAN
-        self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', (f'%{ean}%',))
-        results = self.cursor.fetchall()
-        if results:
-            self.show_results_popup(results, title=f'{len(results)} productos encontrados')
+        self.show_loading_popup('Espere, cargando...')
+        self.root.do_layout()
+        found, sku, title = self.search_product_in_db(ean)
+        self.loading_popup.dismiss()
+        if found:
+            revision_status = self.check_revision_status(sku)
+            self.ean_sku_id.text = sku
+            self.marca_titulo.text = title
+            self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}\n{revision_status}')
         else:
             self.show_add_product_popup(ean)
+        self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
     def search_product_in_db(self, ean):
         self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', ('%' + ean + '%',))
@@ -518,39 +494,21 @@ class ContadorApp(App):
         self.add_to_db_popup.open()
 
     def add_product_to_db(self, instance):
-        """
-        Agrega un nuevo producto a la base de datos. Valida SKUs únicos y permite EANs duplicados.
-        """
         sku = self.sku_input.text.strip()
-        title = self.title_input.text.strip() or 'NO-DESC'
-        eans = self.eans_input.text.strip() or 'NO-EAN'
-
-        if not sku:
-            self.show_warning_popup('El SKU es obligatorio.')
-            return
-
-        try:
-            # Validar SKU único
-            self.cursor.execute('SELECT sku FROM productos WHERE sku = ?', (sku,))
-            if self.cursor.fetchone():
-                raise ValueError(f'El SKU "{sku}" ya existe en la base de datos.')
-
-            # Validar EANs existentes
-            for ean in eans.split(','):
-                self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', (f'%{ean}%',))
-                result = self.cursor.fetchone()
-                if result:
-                    self.show_warning_popup(f'El EAN "{ean}" ya está asociado al producto SKU "{result[0]}" ({result[1]}).')
-
-            # Insertar producto
+        title = self.title_input.text.strip()
+        eans = self.eans_input.text.strip()
+        if sku and title and eans:
+            self.show_loading_popup('Añadiendo a la base de datos...')
+            self.root.do_layout()
             self.cursor.execute('INSERT INTO productos (sku, titulo, eans) VALUES (?, ?, ?)', (sku, title, eans))
             self.conn.commit()
-            self.add_to_db_popup.dismiss()
-            self.status_bar.text = f'Estado: Producto {sku} añadido correctamente.'
-        except ValueError as ve:
-            self.show_warning_popup(str(ve))
-        except Exception as e:
-            self.show_warning_popup(f'Error al añadir el producto: {str(e)}')
+            self.loading_popup.dismiss()
+            if hasattr(self, 'add_to_db_popup'):  # Verificar si el popup existe
+                self.add_to_db_popup.dismiss()
+            self.ean_sku_id.text = sku
+            self.marca_titulo.text = title
+        else:
+            self.show_warning_popup('Todos los campos son obligatorios.')
 
     def on_tipo_select(self, instance, x):
         self.tipo_combobox.text = x
@@ -984,72 +942,68 @@ class ContadorApp(App):
         self.exit_confirmation_popup.dismiss()
         App.get_running_app().stop()
 
-    def edit_db_popup(self, instance):
-        """Muestra un popup para agregar EANs adicionales a un producto existente."""
-        if not self.ean_sku_id.text.strip():
-            self.show_warning_popup('Debe cargar un producto antes de editar sus EANs.')
-            return
+    def toggle_login_screen(self, instance):
+        # Guardar el estado actual de la interfaz
+        self.saved_state = {
+            'ean_sku_id': self.ean_sku_id.text,
+            'marca_titulo': self.marca_titulo.text,
+            'check_zz': self.check_zz.active,
+            'check_lote': self.check_lote.active,
+            'check_set_pack': self.check_set_pack.active,
+            'check_consumo': self.check_consumo.active,
+            'check_edt_edp': self.check_edt_edp.active,
+            'check_makeup': self.check_makeup.active,
+            'check_pt': self.check_pt.active,
+            'check_es': self.check_es.active,
+            'check_it': self.check_it.active,
+            'slider_value': self.slider.value,
+            'slider_text': self.slider_value.text,
+            'check_und': self.check_und.active,
+            'check_ml': self.check_ml.active,
+            'check_gr': self.check_gr.active,
+            'tipo_combobox': self.tipo_combobox.text,
+            'descripcion_pt': self.descripcion_pt,
+            'modo_empleo_pt': self.modo_empleo_pt,
+            'precauciones_pt': self.precauciones_pt,
+            'mas_informaciones_pt': self.mas_informaciones_pt,
+            'descripcion_it': self.descripcion_it,
+            'modo_empleo_it': self.modo_empleo_it,
+            'precauciones_it': self.precauciones_it,
+            'mas_informaciones_it': self.mas_informaciones_it
+        }
+        # Limpiar los campos de entrada de la pantalla de login
+        self.login_screen.reset_fields()
+        # Cambiar a la pantalla de login
+        self.screen_manager.current = 'login'
 
-        # Obtener información del producto desde la base de datos
-        sku = self.ean_sku_id.text.strip()
-        self.cursor.execute('SELECT titulo, eans FROM productos WHERE sku = ?', (sku,))
-        result = self.cursor.fetchone()
-
-        if not result:
-            self.show_warning_popup('El producto no se encuentra en la base de datos.')
-            return
-
-        titulo, eans = result
-        eans = eans or 'NO-EAN'  # Asegurar que no sea None
-        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
-
-        # Mostrar información del producto
-        content.add_widget(Label(text=f'SKU: {sku}', size_hint=(1, 0.1)))
-        content.add_widget(Label(text=f'Título: {titulo or "NO-DESC"}', size_hint=(1, 0.1)))
-        content.add_widget(Label(text=f'EANs: {eans}', size_hint=(1, 0.1)))
-
-        # Input para agregar nuevos EANs
-        self.new_eans_input = TextInput(hint_text='Ingrese nuevos EANs separados por comas', multiline=False)
-        content.add_widget(self.new_eans_input)
-
-        # Botón para guardar los nuevos EANs
-        save_button = Button(text='Guardar', size_hint=(1, 0.2))
-        save_button.bind(on_press=lambda x: self.save_new_eans(sku, eans))
-        content.add_widget(save_button)
-
-        self.edit_db_popup = Popup(title='Editar EANs del Producto',
-                                   content=content,
-                                   size_hint=(0.8, 0.6))
-        self.edit_db_popup.open()
-
-    def save_new_eans(self, sku, current_eans):
-        """
-        Guarda nuevos EANs en la base de datos, permitiendo duplicados pero informando al usuario.
-        """
-        new_eans = self.new_eans_input.text.strip()
-        if not new_eans:
-            self.show_warning_popup('El campo de nuevos EANs no puede estar vacío.')
-            return
-
-        try:
-            current_eans_set = set(current_eans.split(',')) if current_eans else set()
-            new_eans_set = set(new_eans.split(','))
-            updated_eans_set = current_eans_set.union(new_eans_set)
-
-            # Informar sobre EANs existentes
-            for ean in new_eans_set:
-                self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', (f'%{ean}%',))
-                result = self.cursor.fetchone()
-                if result and result[0] != sku:
-                    self.show_warning_popup(f'El EAN "{ean}" ya está asociado al producto SKU "{result[0]}" ({result[1]}).')
-
-            updated_eans = ','.join(sorted(updated_eans_set))
-            self.cursor.execute('UPDATE productos SET eans = ? WHERE sku = ?', (updated_eans, sku))
-            self.conn.commit()
-            self.edit_db_popup.dismiss()
-            self.status_bar.text = f'Estado: EANs actualizados para el producto {sku}.'
-        except Exception as e:
-            self.show_warning_popup(f'Error al actualizar los EANs: {str(e)}')
+    def restore_interface_state(self):
+        # Restaurar el estado guardado de la interfaz
+        if hasattr(self, 'saved_state'):
+            self.ean_sku_id.text = self.saved_state['ean_sku_id']
+            self.marca_titulo.text = self.saved_state['marca_titulo']
+            self.check_zz.active = self.saved_state['check_zz']
+            self.check_lote.active = self.saved_state['check_lote']
+            self.check_set_pack.active = self.saved_state['check_set_pack']
+            self.check_consumo.active = self.saved_state['check_consumo']
+            self.check_edt_edp.active = self.saved_state['check_edt_edp']
+            self.check_makeup.active = self.saved_state['check_makeup']
+            self.check_pt.active = self.saved_state['check_pt']
+            self.check_es.active = self.saved_state['check_es']
+            self.check_it.active = self.saved_state['check_it']
+            self.slider.value = self.saved_state['slider_value']
+            self.slider_value.text = self.saved_state['slider_text']
+            self.check_und.active = self.saved_state['check_und']
+            self.check_ml.active = self.saved_state['check_ml']
+            self.check_gr.active = self.saved_state['check_gr']
+            self.tipo_combobox.text = self.saved_state['tipo_combobox']
+            self.descripcion_pt = self.saved_state['descripcion_pt']
+            self.modo_empleo_pt = self.saved_state['modo_empleo_pt']
+            self.precauciones_pt = self.saved_state['precauciones_pt']
+            self.mas_informaciones_pt = self.saved_state['mas_informaciones_pt']
+            self.descripcion_it = self.saved_state['descripcion_it']
+            self.modo_empleo_it = self.saved_state['modo_empleo_it']
+            self.precauciones_it = self.saved_state['precauciones_it']
+            self.mas_informaciones_it = self.saved_state['mas_informaciones_it']
 
     def on_reg_db_press(self, instance):
         self.reg_db_start_time = datetime.now()
@@ -1309,194 +1263,99 @@ class ContadorApp(App):
 
     def on_marca_titulo_enter(self, instance):
         """
-        Maneja la consulta por Marca/Título. Incluye lógica para palabras clave especiales.
+        Maneja el evento de presionar Enter en el campo de texto "Marca/Titulo".
+        Realiza una búsqueda en la base de datos utilizando las palabras clave ingresadas.
         """
-        keywords = self.marca_titulo.text.strip()
-
+        keywords = self.marca_titulo.text.strip().split()
         if not keywords:
             self.show_warning_popup('El campo Marca/Titulo\nno puede estar vacío.')
             return
 
-        # Verificar palabras clave especiales
-        if keywords == self.SECRET_KEYWORD:
-            self.load_special_results('SELECT sku, titulo, eans FROM productos', 'Todos los productos')
-        elif keywords == self.DUPLICATE_EAN_KEYWORD:
-            self.load_special_results('''
-                SELECT sku, titulo, eans 
-                FROM productos 
-                WHERE eans IN (
-                    SELECT eans 
-                    FROM productos 
-                    WHERE eans != "NO-EAN" 
-                    GROUP BY eans 
-                    HAVING COUNT(*) > 1
-                )
-                ORDER BY eans
-            ''', 'Productos con EANs duplicados')
-        else:
-            keyword_list = keywords.split()
-            query = (
-                'SELECT sku, titulo, eans FROM productos WHERE ' +
-                ' AND '.join(["titulo LIKE ?" for _ in keyword_list])
-            )
-            params = [f'%{kw}%' for kw in keyword_list]
+        # Mostrar barra de progreso mientras se realiza la búsqueda
+        self.show_progress_popup('Buscando productos...')
 
-            # Obtener el total de resultados
-            self.cursor.execute(query, params)
-            total_results = len(self.cursor.fetchall())
-
-            # Actualizar el título con el total de resultados
-            title = f'Resultados para "{keywords}" - Total {total_results} productos encontrados'
-
-            self.load_special_results(query, title, params)
-
-    def load_special_results(self, query, title, params=None):
-        """
-        Carga resultados especiales en bloques para evitar sobrecargar la interfaz.
-        """
-        self.special_results_query = query
-        self.special_results_params = params or []
-        self.special_results_offset = 0
-
-        # Obtener el total de resultados
-        self.cursor.execute(query, self.special_results_params)
-        self.total_results_count = len(self.cursor.fetchall())
-
-        # Actualizar el título con el total de resultados
-        self.special_results_title = f"{title} - Total {self.total_results_count} productos encontrados"
-
-        self.show_results_popup([], self.special_results_title)  # Inicializar el popup vacío
-        self.load_next_results_block()
-
-    def load_next_results_block(self):
-        """
-        Carga el siguiente bloque de resultados y los agrega al popup.
-        """
-        query = f"{self.special_results_query} LIMIT {self.RESULTS_BLOCK_SIZE} OFFSET {self.special_results_offset}"
-        self.cursor.execute(query, self.special_results_params)
+        # Construir la consulta SQL para buscar coincidencias en la columna "titulo"
+        self.cursor.execute('SELECT sku, titulo FROM productos WHERE ' + ' AND '.join(["titulo LIKE ?" for _ in keywords]), [f'%{kw}%' for kw in keywords])
         results = self.cursor.fetchall()
+
+        # Cerrar la barra de progreso
+        self.progress_popup.dismiss()
 
         if results:
-            self.special_results_offset += len(results)
-            self.add_results_to_popup(results)
+            self.show_results_popup(results)
         else:
-            self.disable_load_more_button()
+            self.show_warning_popup('No se encontraron productos que coincidan con las palabras clave.')
 
-    def add_results_to_popup(self, results):
+    def show_progress_popup(self, message):
         """
-        Agrega resultados al popup de resultados.
+        Muestra un popup con una barra de progreso y un mensaje.
+
+        Argumentos:
+        - message: Mensaje a mostrar en el popup.
         """
-        for sku, titulo, eans in results:
-            result_button = Button(text=f"{sku} - {titulo} - {eans}", size_hint_y=None, height=44)
-            result_button.bind(on_release=lambda btn, s=sku, t=titulo: self.select_result(s, t))
-            self.results_layout.add_widget(result_button)
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        content.add_widget(Label(text=message, size_hint=(1, 0.2)))
+        progress_bar = ProgressBar(max=100, value=50, size_hint=(1, 0.2))
+        content.add_widget(progress_bar)
+        self.progress_popup = Popup(title='Procesando',
+                                    content=content,
+                                    size_hint=(0.6, 0.4),
+                                    auto_dismiss=False)
+        self.progress_popup.open()
 
-        # Asegurar que los botones "Cargar más" y "Exportar" estén al final
-        if self.load_more_button.parent:
-            self.results_layout.remove_widget(self.load_more_button)
-        if self.export_button.parent:
-            self.results_layout.remove_widget(self.export_button)
-        self.results_layout.add_widget(self.load_more_button)
-        self.results_layout.add_widget(self.export_button)
-
-    def export_results_to_excel(self):
-        """
-        Muestra un popup para que el usuario defina el nombre del archivo de exportación y luego exporta los resultados.
-        """
-        if not hasattr(self, 'special_results_query') or not self.special_results_query:
-            self.show_warning_popup('No hay resultados para exportar.')
-            return
-
-        # Crear el popup para definir el nombre del archivo
-        content = BoxLayout(orientation='vertical', spacing=10, padding=10)
-        self.export_filename_input = TextInput(hint_text='Nombre del archivo (sin extensión)', multiline=False, size_hint=(1, 0.2))
-        content.add_widget(self.export_filename_input)
-
-        button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
-        export_button = Button(text='Exportar')
-        export_button.bind(on_press=self.perform_export)
-        cancel_button = Button(text='Cancelar')
-        cancel_button.bind(on_press=lambda x: self.export_popup.dismiss())
-        button_layout.add_widget(export_button)
-        button_layout.add_widget(cancel_button)
-
-        content.add_widget(button_layout)
-
-        self.export_popup = Popup(title='Exportar Resultados',
-                                  content=content,
-                                  size_hint=(0.8, 0.4))
-        self.export_popup.open()
-
-    def perform_export(self, instance):
-        """
-        Realiza la exportación de los resultados a un archivo .xlsx.
-        """
-        self.export_popup.dismiss()
-
-        # Crear la carpeta OUTPUT si no existe
-        if not os.path.exists('OUTPUT'):
-            os.makedirs('OUTPUT')
-
-        # Obtener el nombre del archivo desde el campo de texto o usar el nombre por defecto
-        timestamp = datetime.now().strftime('%d%m%Y-%H%M')
-        filename = self.export_filename_input.text.strip() or f"EXPORT-{timestamp}"
-        archivo = f"OUTPUT/{filename}.xlsx"
-
-        # Ejecutar la consulta y obtener los resultados
-        self.cursor.execute(self.special_results_query, self.special_results_params)
-        results = self.cursor.fetchall()
-
-        if not results:
-            self.show_warning_popup('No hay resultados para exportar.')
-            return
-
-        # Crear el archivo Excel
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Resultados"
-        ws.append(["SKU", "Título", "EANs"])  # Encabezados
-
-        for sku, titulo, eans in results:
-            ws.append([sku, titulo, eans])
-
-        wb.save(archivo)
-        self.show_info_popup("Exportación completada", f"Resultados exportados a {archivo}")
-
-    def show_results_popup(self, results, title='Resultados'):
+    def show_results_popup(self, results):
         """
         Muestra un popup interactivo con los resultados de la búsqueda.
+
+        Argumentos:
+        - results: Lista de tuplas con los resultados de la búsqueda. Cada tupla contiene (sku, titulo).
+
+        Ejemplo de uso:
+        - results = [("12345", "Perfume Mujer"), ("67890", "Perfume Hombre")]
+        - Muestra un popup con botones para cada resultado.
         """
         content = BoxLayout(orientation='vertical', spacing=10, padding=10)
         scroll_view = ScrollView(size_hint=(1, 0.8))
-        self.results_layout = BoxLayout(orientation='vertical', size_hint_y=None)
-        self.results_layout.bind(minimum_height=self.results_layout.setter('height'))
+        results_layout = BoxLayout(orientation='vertical', size_hint_y=None)
+        results_layout.bind(minimum_height=results_layout.setter('height'))
 
-        # Crear botones "Cargar más" y "Exportar"
-        self.load_more_button = Button(text='Cargar más', size_hint_y=None, height=44)
-        self.load_more_button.bind(on_press=lambda x: self.load_next_results_block())
-
-        self.export_button = Button(text='Exportar', size_hint_y=None, height=44)
-        self.export_button.bind(on_press=lambda x: self.export_results_to_excel())
-
-        # Agregar resultados iniciales
-        for sku, titulo, eans in results:
-            result_button = Button(text=f"{sku} - {titulo} - {eans}", size_hint_y=None, height=44)
+        # Crear un botón para cada resultado
+        for sku, titulo in results:
+            result_button = Button(text=f"{sku} - {titulo}", size_hint_y=None, height=44)
             result_button.bind(on_release=lambda btn, s=sku, t=titulo: self.select_result(s, t))
-            self.results_layout.add_widget(result_button)
+            results_layout.add_widget(result_button)
 
-        # Agregar los botones "Cargar más" y "Exportar"
-        self.results_layout.add_widget(self.load_more_button)
-        self.results_layout.add_widget(self.export_button)
-
-        scroll_view.add_widget(self.results_layout)
+        scroll_view.add_widget(results_layout)
         content.add_widget(scroll_view)
 
+        # Botón para cerrar el popup
         close_button = Button(text='Cerrar', size_hint=(1, 0.1))
         close_button.bind(on_press=lambda x: self.results_popup.dismiss())
         content.add_widget(close_button)
 
-        self.results_popup = Popup(title=title, content=content, size_hint=(0.8, 0.8))
+        num_results = len(results)
+        self.results_popup = Popup(title=f'Resultados de la búsqueda ({num_results}) Productos Encontrados MATCHs',
+                                   content=content,
+                                   size_hint=(0.8, 0.8))
         self.results_popup.open()
+
+    def select_result(self, sku, titulo):
+        """
+        Maneja la selección de un producto desde el popup de resultados.
+
+        Argumentos:
+        - sku: Código SKU del producto seleccionado.
+        - titulo: Título del producto seleccionado.
+
+        Ejemplo de uso:
+        - sku = "12345"
+        - titulo = "Perfume Mujer"
+        - Importa estos valores al formulario principal.
+        """
+        self.results_popup.dismiss()
+        self.ean_sku_id.text = sku
+        self.marca_titulo.text = titulo
+        self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
 if __name__ == '__main__':
     try:
