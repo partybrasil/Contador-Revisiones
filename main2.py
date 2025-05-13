@@ -91,7 +91,7 @@ def update_window_title(dt=None):
     ram_usage = psutil.virtual_memory().percent
 
     # Actualizar el título de la ventana
-    Window.set_title(f'Contador de Revisiones V2.X (DEV) REV: {rev_count} / RYT: {ryt_count} (CPU: {cpu_usage}% / RAM: {ram_usage}%)')
+    Window.set_title(f'Contador de Revisiones V2.1 (DEV) REV: {rev_count} / RYT: {ryt_count} (CPU: {cpu_usage}% / RAM: {ram_usage}%)')
 
 class CustomSwitch(Switch):
     def __init__(self, **kwargs):
@@ -118,7 +118,7 @@ class ContadorApp(App):
     RESULTS_BLOCK_SIZE = 50  # Cambia este valor para modificar el tamaño del bloque de resultados por página
 
     def build(self):
-        self.title = 'Contador de Revisiones V2.X (DEV)'
+        self.title = 'Contador de Revisiones V2.1 (DEV)'
         self.screen_manager = ScreenManager()
 
         self.main_screen = Screen(name='main')
