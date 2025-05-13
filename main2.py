@@ -347,30 +347,50 @@ class ContadorApp(App):
 
         self.show_loading_popup('Espere, cargando...')
         self.root.do_layout()
-        found, sku, title = self.search_product_in_db(ean)
+        results = self.search_product_in_db(ean)
         self.loading_popup.dismiss()
-        if found:
-            revision_status = self.check_revision_status(sku)
-            self.ean_sku_id.text = sku
-            self.marca_titulo.text = title
-            self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}\n{revision_status}')
+        if results:
+            if len(results) == 1:
+                sku, title = results[0]
+                revision_status = self.check_revision_status(sku)
+                self.ean_sku_id.text = sku
+                self.marca_titulo.text = title
+                self.show_info_popup('Producto encontrado', f'SKU: {sku}\nTítulo: {title}\n{revision_status}')
+            else:
+                # Si hay más de un resultado, mostrar popup para elegir
+                self.show_results_popup(results)
         else:
             self.show_add_product_popup(ean)
         self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
     def search_product_in_db(self, ean):
+        """
+        Busca productos por SKU exacto o por EAN exacto (en la lista de EANs separados por coma).
+        Permite valores como NO-EAN y NO-DESC.
+        Devuelve una lista de tuplas (sku, titulo) de los productos encontrados.
+        """
         try:
-            self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', ('%' + ean + '%',))
-            result = self.cursor.fetchone()
-            if result:
-                return True, result[0], result[1]
-            return False, '', ''
+            # Buscar por SKU exacto (clave única)
+            self.cursor.execute('SELECT sku, titulo FROM productos WHERE sku = ?', (ean,))
+            row = self.cursor.fetchone()
+            if row:
+                return [row]
+
+            # Buscar por EAN exacto en la lista de EANs (separados por coma)
+            self.cursor.execute('SELECT sku, titulo, eans FROM productos')
+            matches = []
+            for sku, titulo, eans in self.cursor.fetchall():
+                if eans:
+                    ean_list = [x.strip() for x in eans.split(',')]
+                    if ean in ean_list:
+                        matches.append((sku, titulo))
+            return matches
         except sqlite3.OperationalError as e:
             if "database is locked" in str(e):
                 msg = "La base de datos está en uso por otro proceso. Por favor, cierre cualquier programa que esté usando 'db.db' y vuelva a intentarlo."
                 print(msg)
                 self.show_warning_popup(msg)
-                return False, '', ''
+                return []
             else:
                 raise
 
@@ -1274,9 +1294,11 @@ class ContadorApp(App):
         content.add_widget(close_button)
 
         num_results = len(results)
-        self.results_popup = Popup(title=f'Resultados de la búsqueda ({num_results}) Productos Encontrados MATCHs',
-                                   content=content,
-                                   size_hint=(0.8, 0.8))
+        self.results_popup = Popup(
+            title=f'Resultados de la búsqueda ({num_results}) Productos Encontrados MATCHs',
+            content=content,
+            size_hint=(0.8, 0.8)
+        )
         self.results_popup.open()
 
     def select_result(self, sku, titulo):
