@@ -114,6 +114,9 @@ class CustomSwitch(Switch):
         self.on_active(self, self.active)
 
 class ContadorApp(App):
+    # --- Configuración de paginación de resultados ---
+    RESULTS_BLOCK_SIZE = 50  # Cambia este valor para modificar el tamaño del bloque de resultados por página
+
     def build(self):
         self.title = 'Contador de Revisiones V2.X (DEV)'
         self.screen_manager = ScreenManager()
@@ -1265,33 +1268,58 @@ class ContadorApp(App):
 
     def show_results_popup(self, results):
         """
-        Muestra un popup interactivo con los resultados de la búsqueda.
+        Muestra un popup interactivo con los resultados de la búsqueda, con paginación y exportación.
 
         Argumentos:
         - results: Lista de tuplas con los resultados de la búsqueda. Cada tupla contiene (sku, titulo).
-
-        Ejemplo de uso:
-        - results = [("12345", "Perfume Mujer"), ("67890", "Perfume Hombre")]
-        - Muestra un popup con botones para cada resultado.
         """
+        self.results_full_list = results
+        self.results_popup_index = 0  # Índice de inicio del bloque actual
+
+        def get_current_block():
+            start = self.results_popup_index
+            end = min(start + self.RESULTS_BLOCK_SIZE, len(self.results_full_list))
+            return self.results_full_list[start:end]
+
+        def update_results_layout():
+            results_layout.clear_widgets()
+            for sku, titulo in get_current_block():
+                result_button = Button(text=f"{sku} - {titulo}", size_hint_y=None, height=44)
+                result_button.bind(on_release=lambda btn, s=sku, t=titulo: self.select_result(s, t))
+                results_layout.add_widget(result_button)
+            # Deshabilitar "Cargar más" si no hay más resultados
+            if self.results_popup_index + self.RESULTS_BLOCK_SIZE >= len(self.results_full_list):
+                load_more_button.disabled = True
+            else:
+                load_more_button.disabled = False
+
+        def on_load_more(instance):
+            self.results_popup_index += self.RESULTS_BLOCK_SIZE
+            update_results_layout()
+
+        def on_export(instance):
+            self.export_results_to_xlsx(self.results_full_list)
+
+        # --- Layout del popup ---
         content = BoxLayout(orientation='vertical', spacing=10, padding=10)
-        scroll_view = ScrollView(size_hint=(1, 0.8))
+        scroll_view = ScrollView(size_hint=(1, 0.7))
         results_layout = BoxLayout(orientation='vertical', size_hint_y=None)
         results_layout.bind(minimum_height=results_layout.setter('height'))
-
-        # Crear un botón para cada resultado
-        for sku, titulo in results:
-            result_button = Button(text=f"{sku} - {titulo}", size_hint_y=None, height=44)
-            result_button.bind(on_release=lambda btn, s=sku, t=titulo: self.select_result(s, t))
-            results_layout.add_widget(result_button)
-
         scroll_view.add_widget(results_layout)
         content.add_widget(scroll_view)
 
-        # Botón para cerrar el popup
-        close_button = Button(text='Cerrar', size_hint=(1, 0.1))
+        # Botones inferiores
+        buttons_layout = BoxLayout(size_hint=(1, 0.15), spacing=10)
+        load_more_button = Button(text='Cargar más')
+        load_more_button.bind(on_press=on_load_more)
+        export_button = Button(text='EXPORT')
+        export_button.bind(on_press=on_export)
+        close_button = Button(text='Cerrar')
         close_button.bind(on_press=lambda x: self.results_popup.dismiss())
-        content.add_widget(close_button)
+        buttons_layout.add_widget(load_more_button)
+        buttons_layout.add_widget(export_button)
+        buttons_layout.add_widget(close_button)
+        content.add_widget(buttons_layout)
 
         num_results = len(results)
         self.results_popup = Popup(
@@ -1299,25 +1327,55 @@ class ContadorApp(App):
             content=content,
             size_hint=(0.8, 0.8)
         )
+        update_results_layout()
         self.results_popup.open()
 
-    def select_result(self, sku, titulo):
+    def export_results_to_xlsx(self, results):
         """
-        Maneja la selección de un producto desde el popup de resultados.
-
-        Argumentos:
-        - sku: Código SKU del producto seleccionado.
-        - titulo: Título del producto seleccionado.
-
-        Ejemplo de uso:
-        - sku = "12345"
-        - titulo = "Perfume Mujer"
-        - Importa estos valores al formulario principal.
+        Exporta la lista de resultados a un archivo xlsx, permitiendo al usuario elegir la ubicación y nombre.
+        Incluye las columnas SKU, TITULO y EANs actuales del producto.
         """
-        self.results_popup.dismiss()
-        self.ean_sku_id.text = sku
-        self.marca_titulo.text = titulo
-        self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
+        from kivy.uix.filechooser import FileChooserIconView
+        from kivy.uix.textinput import TextInput
+
+        def on_export_confirm(instance):
+            export_path = file_chooser.path
+            filename = filename_input.text.strip()
+            if not filename.lower().endswith('.xlsx'):
+                filename += '.xlsx'
+            full_path = os.path.join(export_path, filename)
+            try:
+                from openpyxl import Workbook
+                wb = Workbook()
+                ws = wb.active
+                ws.append(['SKU', 'TITULO', 'EANs'])
+                # Obtener los EANs de la base de datos para cada SKU
+                for sku, titulo in results:
+                    self.cursor.execute('SELECT eans FROM productos WHERE sku = ?', (sku,))
+                    row = self.cursor.fetchone()
+                    eans = row[0] if row and row[0] else ''
+                    ws.append([sku, titulo, eans])
+                wb.save(full_path)
+                export_popup.dismiss()
+                self.show_info_popup('Exportación exitosa', f'Archivo exportado:\n{full_path}')
+            except Exception as e:
+                self.show_warning_popup(f'Error al exportar: {str(e)}')
+
+        file_chooser = FileChooserIconView(filters=['*.xlsx'], size_hint=(1, 0.7))
+        filename_input = TextInput(hint_text='Nombre del archivo (sin extensión)', multiline=False, size_hint=(1, 0.1))
+        export_btn = Button(text='Exportar', size_hint=(1, 0.1))
+        export_btn.bind(on_press=on_export_confirm)
+        cancel_btn = Button(text='Cancelar', size_hint=(1, 0.1))
+        cancel_btn.bind(on_press=lambda x: export_popup.dismiss())
+
+        layout = BoxLayout(orientation='vertical', spacing=10, padding=10)
+        layout.add_widget(file_chooser)
+        layout.add_widget(filename_input)
+        layout.add_widget(export_btn)
+        layout.add_widget(cancel_btn)
+
+        export_popup = Popup(title='Exportar resultados a XLSX', content=layout, size_hint=(0.8, 0.8))
+        export_popup.open()
 
     def on_f4k3_press(self, instance):
         """
