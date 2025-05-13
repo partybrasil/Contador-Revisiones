@@ -113,66 +113,17 @@ class CustomSwitch(Switch):
     def on_pos(self, *args):
         self.on_active(self, self.active)
 
-class LoginScreen(Screen):
-    def __init__(self, **kwargs):
-        super(LoginScreen, self).__init__(**kwargs)
-        self.layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
-        self.add_widget(self.layout)
-
-        self.username_input = TextInput(hint_text='Usuario', multiline=False, size_hint=(1, 0.2))
-        self.username_input.bind(on_text_validate=self.focus_password_input)  # Enfocar en contraseña al presionar Enter
-        self.password_input = TextInput(hint_text='Contraseña', multiline=False, password=True, size_hint=(1, 0.2))
-        self.password_input.bind(on_text_validate=self.validate_credentials)  # Validar credenciales al presionar Enter
-        self.login_button = Button(text='Entrar', size_hint=(1, 0.2))
-        self.login_button.bind(on_press=self.validate_credentials)
-        self.exit_button = Button(text='Salir', size_hint=(1, 0.2))
-        self.exit_button.bind(on_press=self.exit_app)
-
-        self.layout.add_widget(self.username_input)
-        self.layout.add_widget(self.password_input)
-        self.layout.add_widget(self.login_button)
-        self.layout.add_widget(self.exit_button)
-
-    def focus_password_input(self, instance):
-        self.password_input.focus = True
-
-    def validate_credentials(self, instance):
-        if self.username_input.text == 'admin' and self.password_input.text == 'admin':
-            self.manager.current = 'main'
-            App.get_running_app().restore_interface_state()  # Restaurar el estado de la interfaz
-        else:
-            self.show_error_popup('Credenciales incorrectas')
-
-    def show_error_popup(self, message):
-        content = BoxLayout(orientation='vertical', padding=10)
-        content.add_widget(Label(text=message, text_size=(280, None), halign='center'))
-        popup = Popup(title='Error',
-                      content=content,
-                      size_hint=(0.6, 0.4))
-        popup.open()
-
-    def exit_app(self, instance):
-        App.get_running_app().stop()
-
-    def reset_fields(self):
-        self.username_input.text = ''
-        self.password_input.text = ''
-
 class ContadorApp(App):
     def build(self):
         self.title = 'Contador de Revisiones V2.X (DEV)'
         self.screen_manager = ScreenManager()
 
-        self.login_screen = LoginScreen(name='login')
         self.main_screen = Screen(name='main')
         self.main_screen.add_widget(self.build_main_interface())
 
-        self.screen_manager.add_widget(self.login_screen)
         self.screen_manager.add_widget(self.main_screen)
 
-        # Saltar la pantalla de login si ENABLE_LOGIN está desactivado
-        if not ENABLE_LOGIN:
-            self.screen_manager.current = 'main'
+        self.screen_manager.current = 'main'
 
         # Configurar el título dinámico de la ventana si está habilitado
         if ENABLE_DYNAMIC_TITLE:
@@ -251,9 +202,9 @@ class ContadorApp(App):
         # Botones EX1 y EX2
         self.ex1_btn = Button(text='LOCK', size_hint=(0.25, 1))
         self.ex1_btn.bind(on_press=self.toggle_lock_mode)
-        self.ex2_btn = Button(text='IN/OUT', size_hint=(0.25, 1))  # Renombrar a "IN/OUT"
-        self.ex2_btn.bind(on_press=self.toggle_login_screen)  # Vincular a la nueva función
-        
+        self.ex2_btn = Button(text='F4K3', size_hint=(0.25, 1))
+        self.ex2_btn.bind(on_press=self.on_f4k3_press)  # Asignar función al botón F4K3
+
         combobox_layout = BoxLayout(size_hint=(1, 0.1))
         combobox_layout.add_widget(self.ex1_btn)
         combobox_layout.add_widget(self.tipo_combobox)
@@ -408,21 +359,33 @@ class ContadorApp(App):
         self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
     def search_product_in_db(self, ean):
-        self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', ('%' + ean + '%',))
-        result = self.cursor.fetchone()
-        if result:
-            return True, result[0], result[1]
-        return False, '', ''
+        try:
+            self.cursor.execute('SELECT sku, titulo FROM productos WHERE eans LIKE ?', ('%' + ean + '%',))
+            result = self.cursor.fetchone()
+            if result:
+                return True, result[0], result[1]
+            return False, '', ''
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e):
+                msg = "La base de datos está en uso por otro proceso. Por favor, cierre cualquier programa que esté usando 'db.db' y vuelva a intentarlo."
+                print(msg)
+                self.show_warning_popup(msg)
+                return False, '', ''
+            else:
+                raise
 
     def check_revision_status(self, sku):
         fecha = datetime.now().strftime('%d-%m-%Y')
         archivo = f'REVs/REV-{fecha}.xlsx'
         if os.path.exists(archivo):
-            wb = load_workbook(archivo)
-            ws = wb.active
-            for row in ws.iter_rows(min_row=2, values_only=True):
-                if row[0] == sku:
-                    return 'YA REVISADO/TRADUCIDO'
+            try:
+                wb = load_workbook(archivo)
+                ws = wb.active
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    if row[0] == sku:
+                        return 'YA REVISADO/TRADUCIDO'
+            except Exception as e:
+                print(f"Error al leer el archivo de revisiones: {e}")
         return 'SIN REVISION'
 
     def show_loading_popup(self, message):
@@ -500,13 +463,22 @@ class ContadorApp(App):
         if sku and title and eans:
             self.show_loading_popup('Añadiendo a la base de datos...')
             self.root.do_layout()
-            self.cursor.execute('INSERT INTO productos (sku, titulo, eans) VALUES (?, ?, ?)', (sku, title, eans))
-            self.conn.commit()
-            self.loading_popup.dismiss()
-            if hasattr(self, 'add_to_db_popup'):  # Verificar si el popup existe
-                self.add_to_db_popup.dismiss()
-            self.ean_sku_id.text = sku
-            self.marca_titulo.text = title
+            try:
+                self.cursor.execute('INSERT INTO productos (sku, titulo, eans) VALUES (?, ?, ?)', (sku, title, eans))
+                self.conn.commit()
+                self.loading_popup.dismiss()
+                if hasattr(self, 'add_to_db_popup'):  # Verificar si el popup existe
+                    self.add_to_db_popup.dismiss()
+                self.ean_sku_id.text = sku
+                self.marca_titulo.text = title
+            except sqlite3.OperationalError as e:
+                self.loading_popup.dismiss()
+                if "database is locked" in str(e):
+                    msg = "La base de datos está en uso por otro proceso. Por favor, cierre cualquier programa que esté usando 'db.db' y vuelva a intentarlo."
+                    print(msg)
+                    self.show_warning_popup(msg)
+                else:
+                    raise
         else:
             self.show_warning_popup('Todos los campos son obligatorios.')
 
@@ -718,18 +690,34 @@ class ContadorApp(App):
         if not os.path.exists('REVs'):
             os.makedirs('REVs')
         
-        if os.path.exists(archivo):
-            wb = load_workbook(archivo)
-            ws = wb.active
-        else:
-            wb = Workbook()
-            ws = wb.active
-            ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado', 'DescripcionPT', 'Modo de EmpleoPT', 'PrecaucionesPT', 'Más InformacionesPT', 'DescripcionIT', 'Modo de EmpleoIT', 'PrecaucionesIT', 'Más InformacionesIT'])
-        
-        ws.append([ean_sku_id, marca_titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado, self.descripcion_pt, self.modo_empleo_pt, self.precauciones_pt, self.mas_informaciones_pt, self.descripcion_it, self.modo_empleo_it, self.precauciones_it, self.mas_informaciones_it])
-        wb.save(archivo)
-        
-        self.reset_fields()  # Limpiar campos después de registrar la revisión
+        try:
+            if os.path.exists(archivo):
+                wb = load_workbook(archivo)
+                ws = wb.active
+            else:
+                wb = Workbook()
+                ws = wb.active
+                ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado', 'DescripcionPT', 'Modo de EmpleoPT', 'PrecaucionesPT', 'Más InformacionesPT', 'DescripcionIT', 'Modo de EmpleoIT', 'PrecaucionesIT', 'Más InformacionesIT'])
+            
+            ws.append([ean_sku_id, marca_titulo, tipo, tiene_pt, tiene_es, tiene_it, cantidad_neta, unidad, composicion_lote, estado, self.descripcion_pt, self.modo_empleo_pt, self.precauciones_pt, self.mas_informaciones_pt, self.descripcion_it, self.modo_empleo_it, self.precauciones_it, self.mas_informaciones_it])
+            try:
+                wb.save(archivo)
+            except PermissionError as e:
+                msg = f"No se puede guardar el archivo de revisiones '{archivo}'. Es posible que esté abierto en otro programa. Por favor, ciérrelo y vuelva a intentarlo."
+                print(msg)
+                self.show_warning_popup(msg)
+                return
+            except Exception as e:
+                msg = f"Error inesperado al guardar el archivo de revisiones: {e}"
+                print(msg)
+                self.show_warning_popup(msg)
+                return
+
+            self.reset_fields()  # Limpiar campos después de registrar la revisión
+        except Exception as e:
+            msg = f"Error al registrar la revisión: {e}"
+            print(msg)
+            self.show_warning_popup(msg)
 
     def reset_fields(self):
         self.ean_sku_id.text = ''
@@ -942,69 +930,6 @@ class ContadorApp(App):
         self.exit_confirmation_popup.dismiss()
         App.get_running_app().stop()
 
-    def toggle_login_screen(self, instance):
-        # Guardar el estado actual de la interfaz
-        self.saved_state = {
-            'ean_sku_id': self.ean_sku_id.text,
-            'marca_titulo': self.marca_titulo.text,
-            'check_zz': self.check_zz.active,
-            'check_lote': self.check_lote.active,
-            'check_set_pack': self.check_set_pack.active,
-            'check_consumo': self.check_consumo.active,
-            'check_edt_edp': self.check_edt_edp.active,
-            'check_makeup': self.check_makeup.active,
-            'check_pt': self.check_pt.active,
-            'check_es': self.check_es.active,
-            'check_it': self.check_it.active,
-            'slider_value': self.slider.value,
-            'slider_text': self.slider_value.text,
-            'check_und': self.check_und.active,
-            'check_ml': self.check_ml.active,
-            'check_gr': self.check_gr.active,
-            'tipo_combobox': self.tipo_combobox.text,
-            'descripcion_pt': self.descripcion_pt,
-            'modo_empleo_pt': self.modo_empleo_pt,
-            'precauciones_pt': self.precauciones_pt,
-            'mas_informaciones_pt': self.mas_informaciones_pt,
-            'descripcion_it': self.descripcion_it,
-            'modo_empleo_it': self.modo_empleo_it,
-            'precauciones_it': self.precauciones_it,
-            'mas_informaciones_it': self.mas_informaciones_it
-        }
-        # Limpiar los campos de entrada de la pantalla de login
-        self.login_screen.reset_fields()
-        # Cambiar a la pantalla de login
-        self.screen_manager.current = 'login'
-
-    def restore_interface_state(self):
-        # Restaurar el estado guardado de la interfaz
-        if hasattr(self, 'saved_state'):
-            self.ean_sku_id.text = self.saved_state['ean_sku_id']
-            self.marca_titulo.text = self.saved_state['marca_titulo']
-            self.check_zz.active = self.saved_state['check_zz']
-            self.check_lote.active = self.saved_state['check_lote']
-            self.check_set_pack.active = self.saved_state['check_set_pack']
-            self.check_consumo.active = self.saved_state['check_consumo']
-            self.check_edt_edp.active = self.saved_state['check_edt_edp']
-            self.check_makeup.active = self.saved_state['check_makeup']
-            self.check_pt.active = self.saved_state['check_pt']
-            self.check_es.active = self.saved_state['check_es']
-            self.check_it.active = self.saved_state['check_it']
-            self.slider.value = self.saved_state['slider_value']
-            self.slider_value.text = self.saved_state['slider_text']
-            self.check_und.active = self.saved_state['check_und']
-            self.check_ml.active = self.saved_state['check_ml']
-            self.check_gr.active = self.saved_state['check_gr']
-            self.tipo_combobox.text = self.saved_state['tipo_combobox']
-            self.descripcion_pt = self.saved_state['descripcion_pt']
-            self.modo_empleo_pt = self.saved_state['modo_empleo_pt']
-            self.precauciones_pt = self.saved_state['precauciones_pt']
-            self.mas_informaciones_pt = self.saved_state['mas_informaciones_pt']
-            self.descripcion_it = self.saved_state['descripcion_it']
-            self.modo_empleo_it = self.saved_state['modo_empleo_it']
-            self.precauciones_it = self.saved_state['precauciones_it']
-            self.mas_informaciones_it = self.saved_state['mas_informaciones_it']
-
     def on_reg_db_press(self, instance):
         self.reg_db_start_time = datetime.now()
         Clock.schedule_once(self.reg_db_ready, 3)
@@ -1133,9 +1058,14 @@ class ContadorApp(App):
             self.progress_popup.dismiss()
             self.status_bar.text = f'{len(missing_products)} productos registrados en DB correctamente.'
             self.show_import_confirmation(file_path)
-        except Exception as e:
+        except sqlite3.OperationalError as e:
             self.progress_popup.dismiss()
-            self.show_warning_popup(f'Error al registrar productos en DB: {str(e)}')
+            if "database is locked" in str(e):
+                msg = "La base de datos está en uso por otro proceso. Por favor, cierre cualquier programa que esté usando 'db.db' y vuelva a intentarlo."
+                print(msg)
+                self.show_warning_popup(msg)
+            else:
+                self.show_warning_popup(f'Error al registrar productos en DB: {str(e)}')
 
     def on_file_selected(self, instance, selection, *args):
         if selection:
@@ -1274,9 +1204,19 @@ class ContadorApp(App):
         # Mostrar barra de progreso mientras se realiza la búsqueda
         self.show_progress_popup('Buscando productos...')
 
-        # Construir la consulta SQL para buscar coincidencias en la columna "titulo"
-        self.cursor.execute('SELECT sku, titulo FROM productos WHERE ' + ' AND '.join(["titulo LIKE ?" for _ in keywords]), [f'%{kw}%' for kw in keywords])
-        results = self.cursor.fetchall()
+        try:
+            # Construir la consulta SQL para buscar coincidencias en la columna "titulo"
+            self.cursor.execute('SELECT sku, titulo FROM productos WHERE ' + ' AND '.join(["titulo LIKE ?" for _ in keywords]), [f'%{kw}%' for kw in keywords])
+            results = self.cursor.fetchall()
+        except sqlite3.OperationalError as e:
+            self.progress_popup.dismiss()
+            if "database is locked" in str(e):
+                msg = "La base de datos está en uso por otro proceso. Por favor, cierre cualquier programa que esté usando 'db.db' y vuelva a intentarlo."
+                print(msg)
+                self.show_warning_popup(msg)
+                return
+            else:
+                raise
 
         # Cerrar la barra de progreso
         self.progress_popup.dismiss()
@@ -1357,6 +1297,50 @@ class ContadorApp(App):
         self.marca_titulo.text = titulo
         self.ean_sku_id.focus = True  # Asegurar el foco en el campo "EAN/SKU/ID"
 
+    def on_f4k3_press(self, instance):
+        """
+        Al hacer click en F4K3, registra una revisión predefinida en el archivo REVs del día actual.
+        Los valores son de ejemplo y pueden ser modificados posteriormente.
+        Permite duplicar la entrada tantas veces como se pulse el botón.
+        """
+        from openpyxl import load_workbook, Workbook
+        from datetime import datetime
+        import os
+
+        # Valores predefinidos de ejemplo (sin Composición de Lote)
+        fake_row = [
+            "FAKE",                         # EAN/SKU/ID
+            "Marca Falsa - Producto Fake",  # MARCA/TITULO
+            "VARIOS",                       # Tipo
+            "Tiene PT",                     # Tiene PT
+            "Tiene ES",                     # Tiene ES
+            "Tiene IT",                     # Tiene IT
+            "1",                            # Cantidad Neta
+            "UND",                          # UND/ML/GR
+            "",                             # Composición de Lote vacío
+            "Solo Revisión"                 # Estado
+        ]
+
+        fecha = datetime.now().strftime('%d-%m-%Y')
+        archivo = f'REVs/REV-{fecha}.xlsx'
+
+        if not os.path.exists('REVs'):
+            os.makedirs('REVs')
+
+        try:
+            if os.path.exists(archivo):
+                wb = load_workbook(archivo)
+                ws = wb.active
+            else:
+                wb = Workbook()
+                ws = wb.active
+                ws.append(['EAN/SKU/ID', 'MARCA/TITULO', 'Tipo', 'Tiene PT', 'Tiene ES', 'Tiene IT', 'Cantidad Neta', 'UND/ML/GR', 'Composición de Lote', 'Estado'])
+            ws.append(fake_row)
+            wb.save(archivo)
+            self.status_bar.text = 'Estado: Registro F4K3 añadido'
+        except Exception as e:
+            self.show_warning_popup(f'Error al registrar F4K3: {str(e)}')
+
 if __name__ == '__main__':
     try:
         ContadorApp().run()
@@ -1367,3 +1351,4 @@ if __name__ == '__main__':
         print("Ocurrió un error inesperado:")
         traceback.print_exc()
         input("Presione Enter para cerrar...")
+
