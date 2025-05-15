@@ -54,7 +54,8 @@ class CustomFileChooser(FileChooserIconView):
 
 # Configuración de la ventana
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Fondo negro
-Window.size = (550, 450)  # Tamaño inicial de la ventana
+Window.size = (650, 399)  # Tamaño inicial de la ventana
+INITIAL_FONT_SIZE = 13    # Tamaño inicial de la fuente
 
 # Variable para activar/desactivar el control de usuario/contraseña
 ENABLE_LOGIN = False
@@ -132,6 +133,8 @@ class ContadorApp(App):
         if ENABLE_DYNAMIC_TITLE:
             Clock.schedule_interval(update_window_title, TITLE_UPDATE_INTERVAL)
 
+        Window.bind(on_resize=self.on_window_resize)
+
         return self.screen_manager
 
     def build_main_interface(self):
@@ -156,12 +159,12 @@ class ContadorApp(App):
         self.root.add_widget(top_button_layout)
         
         # Checkboxes para ZZ, LOTE, Set & Pack, Consumo, EDT & EDP, MakeUP
-        self.check_zz = CheckBox(size_hint=(None, None), size=(48, 48))
-        self.check_lote = CheckBox(size_hint=(None, None), size=(48, 48))
-        self.check_set_pack = CheckBox(size_hint=(None, None), size=(48, 48))
-        self.check_consumo = CheckBox(size_hint=(None, None), size=(48, 48))
-        self.check_edt_edp = CheckBox(size_hint=(None, None), size=(48, 48))
-        self.check_makeup = CheckBox(size_hint=(None, None), size=(48, 48))
+        self.check_zz = CheckBox(size_hint=(None, None))
+        self.check_lote = CheckBox(size_hint=(None, None))
+        self.check_set_pack = CheckBox(size_hint=(None, None))
+        self.check_consumo = CheckBox(size_hint=(None, None))
+        self.check_edt_edp = CheckBox(size_hint=(None, None))
+        self.check_makeup = CheckBox(size_hint=(None, None))
         
         self.check_zz.bind(active=self.on_special_checkbox_active)
         self.check_lote.bind(active=self.on_special_checkbox_active)
@@ -240,17 +243,17 @@ class ContadorApp(App):
         checkbox_layout.add_widget(self.check_it)
         self.root.add_widget(checkbox_layout)
         
-        # Barra deslizante y campo numérico
-        self.slider = Slider(min=0, max=1000, value=1, size_hint=(1, 0.1))  # Valor inicial cambiado a 1
-        self.slider_value = TextInput(text='1', multiline=False, size_hint=(None, None), size=(60, 48))  # Valor inicial cambiado a 1
-        self.slider.bind(value=self.on_slider_value_change)
-        self.slider_value.bind(on_text_validate=self.on_text_value_change)
-        
+        # Campo numérico
+        self.slider_value = TextInput(text='1', multiline=False, size_hint=(None, None), halign='center')  # Valor inicial cambiado a 1
+
+        # El layout solo tendrá el campo numérico centrado
         slider_layout = BoxLayout(size_hint=(1, 0.1))
-        slider_layout.add_widget(Label(text='Cantidad Neta', color=(1, 1, 1, 1)))
-        slider_layout.add_widget(self.slider)
+        slider_layout.add_widget(Label(size_hint=(0.4, 1)))  # Espacio izquierdo
         slider_layout.add_widget(self.slider_value)
+        slider_layout.add_widget(Label(size_hint=(0.4, 1)))  # Espacio derecho
         self.root.add_widget(slider_layout)
+        
+        self.slider_value.bind(on_text_validate=self.on_text_value_change)
         
         # Checkboxes para UND, ML, GR
         self.check_und = CheckBox(size_hint=(None, None), size=(48, 48))
@@ -308,6 +311,7 @@ class ContadorApp(App):
         self.locked_values = {}  # Diccionario para almacenar los valores bloqueados
         
         Clock.schedule_interval(self.check_focus, 0.1)  # Verificar el foco cada 0.1 segundos
+        Clock.schedule_once(lambda dt: self.update_all_fonts(), 0)
         return self.root
 
     def init_db(self):
@@ -323,7 +327,43 @@ class ContadorApp(App):
         self.conn.commit()
 
     def on_window_resize(self, instance, width, height):
-        self.status_bar.text = f'Estado: Ventana redimensionada a {width}x{height}'
+        if (width, height) == (580, 391):
+            base_font = INITIAL_FONT_SIZE
+        else:
+            base_font = int(min(Window.width, Window.height) * 0.035)
+        self.status_bar.text = f'Estado: Ventana redimensionada a {width}x{height} | Fuente: {base_font}'
+        self.update_all_fonts()
+
+    def update_all_fonts(self):
+        # Calcula un tamaño base de fuente según el tamaño de la ventana o usa el inicial si es el tamaño inicial
+        if Window.size == (580, 391):
+            base_font = INITIAL_FONT_SIZE
+        else:
+            base_font = int(min(Window.width, Window.height) * 0.035)
+        small_font = int(base_font * 0.8)
+        big_font = int(base_font * 1.2)
+
+        def update_widget_font(widget):
+            # Ajusta el tamaño de fuente de los widgets relevantes
+            if isinstance(widget, (Label, Button, TextInput)):
+                widget.font_size = base_font
+                # Ajusta el tamaño del TextInput numérico
+                if widget is self.slider_value:
+                    widget.width = Window.width * 0.12
+                    widget.height = Window.height * 0.08
+            if isinstance(widget, CheckBox):
+                widget.size = (Window.height * 0.08, Window.height * 0.08)
+            # Recorre hijos si es un layout
+            if hasattr(widget, 'children'):
+                for child in widget.children:
+                    update_widget_font(child)
+
+        update_widget_font(self.root)
+        # Ajusta popups si están abiertos
+        for attr in ['loading_popup', 'info_popup', 'add_product_popup', 'add_to_db_popup', 'progress_popup', 'results_popup', 'missing_products_popup', 'import_confirmation_popup', 'progress_overlay', 'traducir_popup', 'historial_popup', 'exit_confirmation_popup']:
+            popup = getattr(self, attr, None)
+            if popup and hasattr(popup, 'content'):
+                update_widget_font(popup.content)
 
     def focus_next(self, instance):
         next_widget = instance.get_focus_next()
@@ -331,16 +371,16 @@ class ContadorApp(App):
             next_widget.focus = True
 
     def on_slider_value_change(self, instance, value):
-        self.slider_value.text = str(int(value))
-        self.status_bar.text = f'Estado: Slider movido a {int(value)}'
+        # Eliminado porque ya no hay slider
+        pass
 
     def on_text_value_change(self, instance):
         value = self.slider_value.text
         if value.isdigit() and 0 <= int(value) <= 1000:
-            self.slider.value = int(value)
+            # self.slider.value = int(value)  # Ya no hay slider
             self.status_bar.text = f'Estado: Valor del campo numérico cambiado a {value}'
         else:
-            self.slider_value.text = str(int(self.slider.value))
+            self.slider_value.text = '1'
 
     def on_ean_enter(self, instance):
         ean = self.ean_sku_id.text.strip()
@@ -754,7 +794,6 @@ class ContadorApp(App):
         self.check_pt.active = False
         self.check_es.active = False
         self.check_it.active = False
-        self.slider.value = 1  # Volver a 1 después de resetear la interfaz
         self.slider_value.text = '1'  # Volver a 1 después de resetear la interfaz
         self.check_und.active = False
         self.check_ml.active = False
@@ -785,8 +824,13 @@ class ContadorApp(App):
 
     def on_status_bar_double_click(self, instance, touch):
         if touch.is_double_tap:
-            Window.size = (550, 450)
-            self.status_bar.text = 'Estado: Ventana restablecida a tamaño inicial'
+            Window.size = (580, 391)
+            # Esperar a que el evento de resize termine antes de actualizar fuentes y estado
+            def restore_font_and_status(dt):
+                base_font = INITIAL_FONT_SIZE
+                self.update_all_fonts()
+                self.status_bar.text = f'Estado: Ventana restablecida a tamaño inicial {Window.width}x{Window.height} | Fuente: {base_font}'
+            Clock.schedule_once(restore_font_and_status, 0.05)
 
     def on_historial(self, instance):
         self.historial_popup = Popup(title='Historial de Revisiones',
@@ -883,7 +927,6 @@ class ContadorApp(App):
                 'check_pt': self.check_pt.active,
                 'check_es': self.check_es.active,
                 'check_it': self.check_it.active,
-                'slider_value': self.slider.value,
                 'slider_text': self.slider_value.text,  # Agregar el valor del campo numérico
                 'check_und': self.check_und.active,
                 'check_ml': self.check_ml.active,
@@ -907,7 +950,6 @@ class ContadorApp(App):
         self.check_pt.active = self.locked_values.get('check_pt', False)
         self.check_es.active = self.locked_values.get('check_es', False)
         self.check_it.active = self.locked_values.get('check_it', False)
-        self.slider.value = self.locked_values.get('slider_value', 1)
         self.slider_value.text = self.locked_values.get('slider_text', '1')
         self.check_und.active = self.locked_values.get('check_und', False)
         self.check_ml.active = self.locked_values.get('check_ml', False)
@@ -1043,11 +1085,23 @@ class ContadorApp(App):
         """
         content = BoxLayout(orientation='vertical', spacing=10, padding=10)
         scroll_view = ScrollView(size_hint=(1, 0.8))
-        products_layout = BoxLayout(orientation='vertical', size_hint_y=None)
+        # Usar GridLayout para mostrar cada producto en una línea separada y permitir scroll correcto
+        from kivy.uix.gridlayout import GridLayout
+        products_layout = GridLayout(cols=1, size_hint_y=None, spacing=5, padding=[10, 0, 10, 0])
         products_layout.bind(minimum_height=products_layout.setter('height'))
 
         for sku, titulo, eans in missing_products:
-            products_layout.add_widget(Label(text=f"SKU: {sku}, Título: {titulo}, EANs: {eans}"))
+            label = Label(
+                text=f"SKU: {sku}\nTítulo: {titulo}\nEANs: {eans}",
+                size_hint_y=None,
+                height=70,
+                halign='left',
+                valign='top',
+                text_size=(500, None),
+                color=(1, 1, 1, 1)
+            )
+            label.bind(size=lambda instance, value: setattr(instance, 'text_size', (instance.width, None)))
+            products_layout.add_widget(label)
 
         scroll_view.add_widget(products_layout)
         content.add_widget(scroll_view)
@@ -1062,9 +1116,11 @@ class ContadorApp(App):
 
         content.add_widget(button_layout)
 
-        self.missing_products_popup = Popup(title='Productos no encontrados en DB',
-                                             content=content,
-                                             size_hint=(0.8, 0.8))
+        self.missing_products_popup = Popup(
+            title='Productos no encontrados en DB',
+            content=content,
+            size_hint=(0.8, 0.8)
+        )
         self.missing_products_popup.open()
 
     def register_missing_products(self, missing_products, file_path):
