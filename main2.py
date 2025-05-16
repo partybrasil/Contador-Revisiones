@@ -243,15 +243,25 @@ class ContadorApp(App):
         checkbox_layout.add_widget(self.check_it)
         self.root.add_widget(checkbox_layout)
         
-        # Campo numérico
-        self.slider_value = TextInput(text='1', multiline=False, size_hint=(None, None), halign='center')  # Valor inicial cambiado a 1
-
-        # El layout solo tendrá el campo numérico centrado
-        slider_layout = BoxLayout(size_hint=(1, 0.1))
-        slider_layout.add_widget(Label(size_hint=(0.4, 1)))  # Espacio izquierdo
-        slider_layout.add_widget(self.slider_value)
-        slider_layout.add_widget(Label(size_hint=(0.4, 1)))  # Espacio derecho
-        self.root.add_widget(slider_layout)
+        # Campo numérico tradicional con flechas externas
+        slider_row = BoxLayout(size_hint=(1, 0.1))
+        # Botón para decrementar (izquierda)
+        self.decrement_btn = Button(text='-', size_hint=(None, 1), width=32, font_size=18, background_normal='', background_color=(0.2,0.2,0.2,1))
+        # Espacio izquierdo
+        slider_row.add_widget(self.decrement_btn)
+        slider_row.add_widget(Label(size_hint=(0.15, 1)))
+        # Campo numérico centrado
+        self.slider_value = TextInput(text='1', multiline=False, size_hint=(None, None), halign='center', width=80, input_filter='int')
+        slider_row.add_widget(self.slider_value)
+        slider_row.add_widget(Label(size_hint=(0.15, 1)))
+        # Botón para incrementar (derecha)
+        self.increment_btn = Button(text='+', size_hint=(None, 1), width=32, font_size=18, background_normal='', background_color=(0.2,0.2,0.2,1))
+        slider_row.add_widget(self.increment_btn)
+        self.root.add_widget(slider_row)
+        # Eventos
+        self.decrement_btn.bind(on_press=self.on_decrement)
+        self.increment_btn.bind(on_press=self.on_increment)
+        self.slider_value.bind(on_text_validate=self.on_text_value_change)
         
         self.slider_value.bind(on_text_validate=self.on_text_value_change)
         
@@ -351,6 +361,10 @@ class ContadorApp(App):
                 if widget is self.slider_value:
                     widget.width = Window.width * 0.12
                     widget.height = Window.height * 0.08
+            if widget is self.decrement_btn or widget is self.increment_btn:
+                widget.font_size = base_font
+                widget.width = int(Window.height * 0.08 * 0.6)
+                widget.height = Window.height * 0.08
             if isinstance(widget, CheckBox):
                 widget.size = (Window.height * 0.08, Window.height * 0.08)
             # Recorre hijos si es un layout
@@ -374,10 +388,29 @@ class ContadorApp(App):
         # Eliminado porque ya no hay slider
         pass
 
+    def on_increment(self, instance):
+        try:
+            value = int(self.slider_value.text)
+        except ValueError:
+            value = 1
+        if value < 1000:
+            value += 1
+        self.slider_value.text = str(value)
+        self.status_bar.text = f'Estado: Valor del campo numérico cambiado a {value}'
+
+    def on_decrement(self, instance):
+        try:
+            value = int(self.slider_value.text)
+        except ValueError:
+            value = 1
+        if value > 0:
+            value -= 1
+        self.slider_value.text = str(value)
+        self.status_bar.text = f'Estado: Valor del campo numérico cambiado a {value}'
+
     def on_text_value_change(self, instance):
         value = self.slider_value.text
         if value.isdigit() and 0 <= int(value) <= 1000:
-            # self.slider.value = int(value)  # Ya no hay slider
             self.status_bar.text = f'Estado: Valor del campo numérico cambiado a {value}'
         else:
             self.slider_value.text = '1'
